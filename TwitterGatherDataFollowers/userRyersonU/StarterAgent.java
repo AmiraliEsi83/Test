@@ -127,6 +127,7 @@ public class StarterAgent extends Agent
 	private int queryUserCounter=0;
 	private int numberofusermessagesfromserver=0;
 	private int userCounter=0;
+	private int nextQueryUserIndex=0;
 
 
 	private int tfidfservercount=0;
@@ -160,9 +161,117 @@ public class StarterAgent extends Agent
 	private long kmeansMessageTime; //Message passing time for k-means results
 	private long beginKmeansMergeTime;
 	private long endKmeansMergeTime;
+	private long stageSimulationStartTime;
+	private long stageStartSimBroadcastEndTime;
+	private long stageAllTweetingCompletedTime;
+	private long stageAllTextProcessingCompletedTime;
+	private long stageAlgorithmStartTime;
+	private long stageAllAlgorithmsReportedTime;
+	private long stageMergeCompletedTime;
+	private long stageQueryStartTime;
+	private long stageQueryCompletedTime;
+	
+	private void logStageDuration(String label, long startTime, long endTime)
+	{
+		if (startTime <= 0 || endTime <= 0)
+		{
+			return;
+		}
+		String line = "[StageTimer] " + label + ": " + (endTime - startTime) + " ms";
+		System.out.println(line);
+		if (myGui != null)
+		{
+			myGui.appendResult(line);
+		}
+	}
+	
+	private void logStagePoint(String label)
+	{
+		String line = "[StageTimer] " + label + " at " + LocalDateTime.now();
+		System.out.println(line);
+		if (myGui != null)
+		{
+			myGui.appendResult(line);
+		}
+	}
+
+	private boolean sendNextQueryUserRequest()
+	{
+		if (usersRec == null || nextQueryUserIndex >= usersRec.size())
+		{
+			return false;
+		}
+
+		String queryUserName = usersRec.get(nextQueryUserIndex);
+		String suffixAgentName = "-UserAgent";
+		for (int i = 0; i < allUserAgentsList.size(); i++)
+		{
+			if (allUserAgentsList.get(i).getLocalName().equals(queryUserName+suffixAgentName))
+			{
+				ACLMessage msg2 = new ACLMessage( ACLMessage.REQUEST);
+				msg2.setContent("requestedBy");
+				msg2.setOntology("Start Querying");
+				msg2.addReceiver(allUserAgentsList.get(i));
+				nextQueryUserIndex++;
+				System.out.println(getLocalName()+" "+queryUserName+suffixAgentName+" queryMessageIndex: "+nextQueryUserIndex+" of "+usersRec.size());
+				send(msg2);
+				return true;
+			}
+		}
+
+		System.out.println("ERROR: QUERY USER " + queryUserName + " NOT FOUND IN USER AGENT LIST");
+		myGui.appendResult("ERROR: QUERY USER " + queryUserName + " NOT FOUND IN USER AGENT LIST");
+		nextQueryUserIndex++;
+		return sendNextQueryUserRequest();
+	}
+
+	private ArrayList<String> filterUsersRecToAvailableUserAgents(ArrayList<String> requestedUsers)
+	{
+		ArrayList<String> availableUsers = new ArrayList<String>();
+		if (requestedUsers == null)
+		{
+			return availableUsers;
+		}
+
+		for (String requestedUser : requestedUsers)
+		{
+			if (isUserAgentAvailable(requestedUser))
+			{
+				availableUsers.add(requestedUser);
+			}
+			else
+			{
+				String line = "Skipping query for " + requestedUser + " because no active user agent exists.";
+				System.out.println(line);
+				if (myGui != null)
+				{
+					myGui.appendResult(line);
+				}
+			}
+		}
+		return availableUsers;
+	}
+
+	private boolean isUserAgentAvailable(String userName)
+	{
+		if (userName == null)
+		{
+			return false;
+		}
+		String suffixAgentName = "-UserAgent";
+		for (int i = 0; i < allUserAgentsList.size(); i++)
+		{
+			if (allUserAgentsList.get(i).getLocalName().equals(userName + suffixAgentName))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 	
 	protected void setup() 
 	{
+		long starterSetupStartTime = System.currentTimeMillis();
 
 
 		getContentManager().registerLanguage(new SLCodec());
@@ -181,6 +290,7 @@ public class StarterAgent extends Agent
 
 
 		final int numberofuserparticipated = numberofusers;
+		logStagePoint("STARTER setup started nodes="+numNodes+" expectedUsers="+numberofuserparticipated);
 		
 		//@Jason checking numberofuserparticipated
 		System.out.println("numberofuserparticipated: "+numberofuserparticipated);
@@ -231,6 +341,7 @@ public class StarterAgent extends Agent
 		catch (FIPAException fe) {
 			fe.printStackTrace();
 		}
+		logStageDuration("STARTER setup DF discovery and agent list collection", starterSetupStartTime, System.currentTimeMillis());
 
 
 
@@ -267,12 +378,22 @@ public class StarterAgent extends Agent
 		//@Jason added simulation start message and time
 		System.out.println("Simulation has started...");
 		final long startSimTime = System.currentTimeMillis();
+		stageSimulationStartTime = startSimTime;
+		long startSimBroadcastStartTime = System.currentTimeMillis();
 		System.out.println("The start time: "+startSimTime);
 		System.out.println("The readable start time: "+LocalDateTime.now());
 
 		msg2.setConversationId(conversationIDInitial);
 		msg2.setOntology("Start SIM");
 		send(msg2);
+		stageStartSimBroadcastEndTime = System.currentTimeMillis();
+		logStageDuration("START_SIM broadcast to MobileAgents", startSimBroadcastStartTime, stageStartSimBroadcastEndTime);
+		if (isMobileAgentTweetDelayBypassEnabled())
+		{
+			String bypassLine = "[StageTimer] MobileAgent tweet-delay simulation bypass enabled; proceeding after recommender text-processing confirmation.";
+			System.out.println(bypassLine);
+			myGui.appendResult(bypassLine);
+		}
 		System.out.println(getLocalName()+": Tweets have started...");
 
 		myGui.disableList();
@@ -292,6 +413,8 @@ public class StarterAgent extends Agent
 			protected void onTick() 
 			{
 				ACLMessage msg= myAgent.receive();
+				while (msg != null)
+				{
 
 				if (messagePassingCostReceived == numNodes && messagePassingTimesReceived == numNodes && !messagePassingCompleted)
 				{
@@ -387,6 +510,8 @@ public class StarterAgent extends Agent
 						numberofusers_counter = 0;
 						//@Jason changed to -1 to reuse counter in ontology: Querying Done from Organizing Agent below
 						alltweetsflag = true;
+						stageAllTweetingCompletedTime = System.currentTimeMillis();
+						logStageDuration("WAIT all MobileAgents Tweeting Completed", stageStartSimBroadcastEndTime, stageAllTweetingCompletedTime);
 						System.out.println(myAgent.getLocalName()+" TWEETING COMPLETED numberofusers: "+numberofusers);
 
 						// System.out.println("STARTER AGENT BEFORE CALCULATE MESSAGE PASSING COST TIME");
@@ -510,6 +635,9 @@ public class StarterAgent extends Agent
 
 					//All recommender agents ready to cluster since text processing is completed
 					if (numOfRecAgentsCount == alltfidfserviceAgents.length){
+						stageAllTextProcessingCompletedTime = System.currentTimeMillis();
+						long textProcessingWaitStartTime = stageAllTweetingCompletedTime > 0 ? stageAllTweetingCompletedTime : stageStartSimBroadcastEndTime;
+						logStageDuration("WAIT all RecommenderAgents Text Processing Complete", textProcessingWaitStartTime, stageAllTextProcessingCompletedTime);
 
 						//System.exit(0);
 						
@@ -530,7 +658,7 @@ public class StarterAgent extends Agent
 						send(showFollowersMsg);
 
 						int recUserInList = 0;
-						usersRec = myGui.getUsersRec();
+						usersRec = filterUsersRecToAvailableUserAgents(myGui.getUsersRec());
 
 						for (String recUser : usersRec)
 						{
@@ -552,12 +680,14 @@ public class StarterAgent extends Agent
 							startRecMsg.setContent("Start Recommend Algorithms");
 							startRecMsg.setOntology("Start Recommend Algorithms");
 
+							stageAlgorithmStartTime = System.currentTimeMillis();
 							for (int i=0; i < alltfidfserviceAgents.length; i++){
 								String recAgentToSend = "Recommender-ServiceAgent"+(i+1);
 								System.out.println(getLocalName()+ " Start Recommend Algorithm Msg Sent To: "+recAgentToSend);
 								startRecMsg.addReceiver(new AID(recAgentToSend,AID.ISLOCALNAME));
 								send(startRecMsg);
 							}
+							logStageDuration("START Recommend Algorithms broadcast", stageAlgorithmStartTime, System.currentTimeMillis());
 						}
 						else
 						{
@@ -584,6 +714,8 @@ public class StarterAgent extends Agent
 					}
 					if(tfidfservercount == alltfidfserviceAgents.length)
 					{
+						stageAllAlgorithmsReportedTime = System.currentTimeMillis();
+						logStageDuration("WAIT all RecommenderAgents Algorithm/TFIDF Done", stageAlgorithmStartTime, stageAllAlgorithmsReportedTime);
 						tfidfservercount = 0;
 					}
 				}
@@ -593,6 +725,9 @@ public class StarterAgent extends Agent
 					System.out.println(getLocalName()+" received Merge Lists Completed");
 
 					endKmeansMergeTime = System.nanoTime();
+					stageMergeCompletedTime = System.currentTimeMillis();
+					logStageDuration("WAIT merge completed after algorithm start", stageAlgorithmStartTime, stageMergeCompletedTime);
+					logStageDuration("WAIT merge completed after all algorithms reported", stageAllAlgorithmsReportedTime, stageMergeCompletedTime);
 
 					if (alltfidfserviceAgents.length > 1)
 					{
@@ -602,36 +737,27 @@ public class StarterAgent extends Agent
 					}
 
 					myGui.addTiming();
-					usersRec = myGui.getUsersRec();
-
-					ACLMessage msg2 = new ACLMessage( ACLMessage.REQUEST);
-					String result = "requestedBy";					
-					msg2.setContent(result);
-					msg2.setOntology("Start Querying");
-
-					//Send query to only users that are supposed to get recommendations
-
-					int queryMessageCount = 0;
-					for (int i = 0; i < allUserAgentsList.size(); i++){
-
-						String suffixAgentName = "-UserAgent";
-						for (String queryUserName : usersRec)
+						usersRec = filterUsersRecToAvailableUserAgents(myGui.getUsersRec());
+						if (usersRec.size() == 0)
 						{
-							if (allUserAgentsList.get(i).getLocalName().equals(queryUserName+suffixAgentName))
-							{
-								queryMessageCount++;
-								System.out.println(getLocalName()+" "+queryUserName+suffixAgentName+" queryMessageCount: "+queryMessageCount);
-								msg2.addReceiver(allUserAgentsList.get(i));
-								send(msg2);
-							}
+							String line = "No active users are available for querying.";
+							System.out.println(line);
+							myGui.appendResult(line);
+							myGui.enableAllButtons();
+							myGui.enableList();
 						}
-						if (queryMessageCount == usersRec.size())
-							break;
-					}
-				}
+						else
+						{
+							stageQueryStartTime = System.currentTimeMillis();
+							queryUserCounter = 0;
+							nextQueryUserIndex = 0;
+							sendNextQueryUserRequest();
+							logStageDuration("START Querying broadcast", stageQueryStartTime, System.currentTimeMillis());
+						}
+						}
 
 				//When user got its recommendation list
-				if (msg!=null && msg.getOntology() == "Querying Done from Organizing Agent" && msg.getPerformative() == ACLMessage.INFORM) 
+				if (msg!=null && "Querying Done from Organizing Agent".equals(msg.getOntology()) && msg.getPerformative() == ACLMessage.INFORM)
 				{
 					queryUserCounter++;
 					numberofusers_counter++;
@@ -655,17 +781,20 @@ public class StarterAgent extends Agent
                     // End of code added by Sepide 					
 					  
 					System.out.println("queryUserCounter: "+queryUserCounter+" usersRec.size(): "+ usersRec.size());
-					if (queryUserCounter == usersRec.size()) 				
-						//if(numberofusers_counter == numberofusers)
-					{
-						numberofusers_counter = 0;
+						if (queryUserCounter == usersRec.size()) 				
+							//if(numberofusers_counter == numberofusers)
+						{
+							numberofusers_counter = 0;
 						queryUserCounter = 0;
 
 						//@Jason timing whole execution
 						final long endSimTime = System.currentTimeMillis();
+						stageQueryCompletedTime = endSimTime;
+						logStageDuration("WAIT querying/recommendation completed", stageQueryStartTime, stageQueryCompletedTime);
 						System.out.println("Simulation Completed");
 						System.out.println("Final Total execution time: " + (endSimTime - startSimTime) + "ms" );
-						System.out.println("Simulated ended at "+ LocalDateTime.now());
+							logStageDuration("SIMULATION total before graph visualization", stageSimulationStartTime, endSimTime);
+							System.out.println("Simulated ended at "+ LocalDateTime.now());
 						
 						myGui.enableAllButtons();
 						myGui.enableList();
@@ -685,38 +814,81 @@ public class StarterAgent extends Agent
                       
                          } */
 						
-						ProjectController pc = Lookup.getDefault().lookup(ProjectController.class);
-						pc.newProject();
-						AppearanceController appearanceController = Lookup.getDefault().lookup(AppearanceController.class);
-						AppearanceModel appearanceModel = appearanceController.getModel();
-						ImportController importController = Lookup.getDefault().lookup(ImportController.class);
-						GraphModel graphModel = Lookup.getDefault().lookup(GraphController.class).getGraphModel();
-						Workspace workspace = pc.getCurrentWorkspace();
-						Container container;
-						
+						long graphVisualizationStartTime = System.currentTimeMillis();
+						logStagePoint("GRAPH visualization started");
 						String importantStuffDirName = "important-stuff/";
 						File importantStuffDir = new File(importantStuffDirName);
 						if (!importantStuffDir.exists())
 						{
 								importantStuffDir.mkdirs();
 						}
-						
+
+						File graphFile;
+						long graphBuildStartTime = System.currentTimeMillis();
 						try {
-                               //File file = new File(getClass().getResource("C:\\Users\\Sepide\\Desktop\\project2\\94k_after2runSimulation.gml").toURI());
-                               //Process p = Runtime.getRuntime().exec("C:/Users/s2baniha/Desktop/important-stuff/TXT2GMLv1.0/conver C:/Users/s2baniha/Desktop/important-stuff/edges-numbers");  
-							   File file = new File(importantStuffDirName +"edges-numbers.gml");
-							   //System.out.println("the gml file gets inputted in Gephi Software");
-							   container = importController.importFile(file);
-                               container.getLoader().setEdgeDefault(EdgeDirectionDefault.UNDIRECTED);   //Force DIRECTED
-                               container.getLoader().setAllowAutoNode(false);  //Don't create missing nodes
-                              } catch (Exception ex) {
-                               ex.printStackTrace();
-							   return;
-                      
-                        }
+							GraphGmlBuilder.Result graphBuild = buildCompletedGraphFile(importantStuffDir);
+							graphFile = graphBuild.getOutputFile();
+							System.out.println("Built graph file with " + graphBuild.getNodeCount() + " nodes and "
+									+ graphBuild.getEdgeCount() + " edges: " + graphFile.getPath());
+						}
+						catch (Exception ex) {
+							reportGraphVisualizationFailure("could not build the completed graph file", ex);
+							return;
+						}
+						logStageDuration("GRAPH build validated GML file", graphBuildStartTime, System.currentTimeMillis());
+
+						ProjectController pc;
+						AppearanceController appearanceController;
+						AppearanceModel appearanceModel;
+						ImportController importController;
+						GraphModel graphModel;
+						Workspace workspace;
+						Container container;
+						long graphSetupStartTime = System.currentTimeMillis();
+						try {
+							pc = requireGraphComponent(
+									Lookup.getDefault().lookup(ProjectController.class), "ProjectController");
+							pc.newProject();
+							appearanceController = requireGraphComponent(
+									Lookup.getDefault().lookup(AppearanceController.class), "AppearanceController");
+							appearanceModel = requireGraphComponent(appearanceController.getModel(), "AppearanceModel");
+							importController = requireGraphComponent(
+									Lookup.getDefault().lookup(ImportController.class), "ImportController");
+							GraphController graphController = requireGraphComponent(
+									Lookup.getDefault().lookup(GraphController.class), "GraphController");
+							graphModel = requireGraphComponent(graphController.getGraphModel(), "GraphModel");
+							workspace = requireGraphComponent(pc.getCurrentWorkspace(), "Workspace");
+						}
+						catch (Exception ex) {
+							reportGraphVisualizationFailure("could not initialize Gephi", ex);
+							return;
+						}
+						logStageDuration("GRAPH initialize Gephi controllers/workspace", graphSetupStartTime, System.currentTimeMillis());
+
+						long graphImportStartTime = System.currentTimeMillis();
+						try {
+							System.out.println("Importing graph file: " + graphFile.getPath());
+							container = importController.importFile(graphFile);
+							if (container == null) {
+								throw new IOException("Gephi returned no import container for " + graphFile.getPath());
+							}
+							if (container.getLoader() == null) {
+								throw new IOException("Gephi returned an import container without a loader for "
+										+ graphFile.getPath());
+							}
+							container.getLoader().setEdgeDefault(EdgeDirectionDefault.UNDIRECTED);
+							container.getLoader().setAllowAutoNode(false);
+						}
+						catch (Exception ex) {
+							reportGraphVisualizationFailure("Gephi could not import the completed graph file", ex);
+							return;
+						}
+						logStageDuration("GRAPH import GML file", graphImportStartTime, System.currentTimeMillis());
 						
 						     //Append imported data to GraphAPI
+                             long graphProcessStartTime = System.currentTimeMillis();
                              importController.process(container, new DefaultProcessor(), workspace);
+							 logStageDuration("GRAPH process imported container", graphProcessStartTime, System.currentTimeMillis());
 							 
 					         //See if graph is well imported
                              //UndirectedGraph graph = graphModel.getUndirectedGraph();
@@ -725,11 +897,14 @@ public class StarterAgent extends Agent
                              System.out.println("Edges: " + graph.getEdgeCount());
 							 
 							 //Run modularity algorithm - community detection
+                             long graphModularityStartTime = System.currentTimeMillis();
                              Modularity modularity = new Modularity();
 							 modularity.setResolution(1.0);
                              modularity.execute(graphModel);
+							 logStageDuration("GRAPH modularity calculation", graphModularityStartTime, System.currentTimeMillis());
 							 
 							//Partition with 'modularity_class', just created by Modularity algorithm
+                            long graphPartitionStartTime = System.currentTimeMillis();
                             Column modColumn = graphModel.getNodeTable().getColumn(Modularity.MODULARITY_CLASS);
                             Function func2 = appearanceModel.getNodeFunction(graph, modColumn, PartitionElementColorTransformer.class);
                             Partition partition2 = ((PartitionFunction) func2).getPartition();
@@ -737,15 +912,19 @@ public class StarterAgent extends Agent
                             Palette palette2 = PaletteManager.getInstance().randomPalette(partition2.size());
                             partition2.setColors(palette2.getColors());
                             appearanceController.transform(func2);
+							logStageDuration("GRAPH partition/color transform", graphPartitionStartTime, System.currentTimeMillis());
 							
 							//Preview 
+							long graphPreviewStartTime = System.currentTimeMillis();
 							PreviewModel model = Lookup.getDefault().lookup(PreviewController.class).getModel();
                             model.getProperties().putValue(PreviewProperty.SHOW_NODE_LABELS, Boolean.TRUE);
 							model.getProperties().putValue(PreviewProperty.NODE_LABEL_FONT, model.getProperties().getFontValue(PreviewProperty.NODE_LABEL_FONT).deriveFont(8));
 							model.getProperties().putValue(PreviewProperty.NODE_LABEL_PROPORTIONAL_SIZE, Boolean.FALSE);
 							model.getProperties().putValue(PreviewProperty.NODE_LABEL_OUTLINE_SIZE, 12);
+							logStageDuration("GRAPH configure preview", graphPreviewStartTime, System.currentTimeMillis());
 							
 							//Export
+                            long graphPartitionExportStartTime = System.currentTimeMillis();
                             ExportController ec = Lookup.getDefault().lookup(ExportController.class);
                               try {
                                 ec.exportFile(new File(importantStuffDirName+"partition.pdf"));
@@ -753,8 +932,10 @@ public class StarterAgent extends Agent
                                    ex.printStackTrace();
                                    return;
                                 }
+							  logStageDuration("GRAPH export partition PDF", graphPartitionExportStartTime, System.currentTimeMillis());
 								
 								//Layout for 1 minute
+								long graphLayoutStartTime = System.currentTimeMillis();
 								AutoLayout autoLayout = new AutoLayout(1, TimeUnit.MINUTES);
                                 autoLayout.setGraphModel(graphModel);
 								//YifanHuLayout secondLayout = new YifanHuLayout(null, new StepDisplacement(1f));
@@ -776,12 +957,14 @@ public class StarterAgent extends Agent
 								//AutoLayout.DynamicProperty preventOver = AutoLayout.createDynamicProperty("forceAtlas2.preventOverlap.namePreventOverlap", Boolean.FALSE, 0f);
 								//autoLayout.addLayout(secondLayout, 1f,new AutoLayout.DynamicProperty[]{preventOver});
 								AutoLayout.DynamicProperty adjustBySizeProperty = AutoLayout.createDynamicProperty("ForceAtlas2.adjustSizes.name",Boolean.TRUE,0f);//True for the complete period
-                                AutoLayout.DynamicProperty distrAttraction = AutoLayout.createDynamicProperty("ForceAtlas2.distributedAttraction.name",Boolean.TRUE,0f);//True for the complete period
+								AutoLayout.DynamicProperty distrAttraction = AutoLayout.createDynamicProperty("ForceAtlas2.distributedAttraction.name",Boolean.TRUE,0f);//True for the complete period
                                 autoLayout.addLayout(secondLayout, 1.0f, new AutoLayout.DynamicProperty[]{adjustBySizeProperty,distrAttraction});
 								//autoLayout.addLayout(secondLayout, 1.0f);
 								autoLayout.execute();
+								logStageDuration("GRAPH AutoLayout execute", graphLayoutStartTime, System.currentTimeMillis());
 								
 								//Export full graph
+								long graphGexfExportStartTime = System.currentTimeMillis();
 								ExportController ec3 = Lookup.getDefault().lookup(ExportController.class);
                                  try {
                                        ec3.exportFile(new File(importantStuffDirName+"graph.gexf"));
@@ -789,17 +972,21 @@ public class StarterAgent extends Agent
                                        ex.printStackTrace();
                                      return;
 									}
+								logStageDuration("GRAPH export GEXF", graphGexfExportStartTime, System.currentTimeMillis());
 								
 								
 								
 								//Export
+                                  long graphAutolayoutExportStartTime = System.currentTimeMillis();
                                   ExportController ec2 = Lookup.getDefault().lookup(ExportController.class);
                                   try {
                                    ec2.exportFile(new File(importantStuffDirName+"autolayout.pdf"));
                                     } catch (IOException ex) {
                                      ex.printStackTrace();
                                      }
+								  logStageDuration("GRAPH export autolayout PDF", graphAutolayoutExportStartTime, System.currentTimeMillis());
 									 
+									 long graphRenderImageStartTime = System.currentTimeMillis();
 									 try {
 										 PDDocument document = PDDocument.load(new File(importantStuffDirName + "autolayout.pdf"));
 										 PDFRenderer pdfRenderer = new PDFRenderer(document);
@@ -829,6 +1016,7 @@ public class StarterAgent extends Agent
 									 catch (Exception e) {
                                                    System.out.println("ERROR: " + e.getMessage());
                                             }
+									 logStageDuration("GRAPH render layout image", graphRenderImageStartTime, System.currentTimeMillis());
 																		
 									 
 									 /* try {
@@ -856,6 +1044,7 @@ public class StarterAgent extends Agent
 									
 									 try  
 	                                 {  
+	                                   long graphOpenImageStartTime = System.currentTimeMillis();
 	                                   //constructor of file class having file as argument  
 	                                   File file = new File(importantStuffDirName+"layout.jpg");   
 	                                   if(!Desktop.isDesktopSupported())//check if Desktop is supported by Platform or not  
@@ -866,11 +1055,13 @@ public class StarterAgent extends Agent
 	                                  Desktop desktop = Desktop.getDesktop();  
 	                                  if(file.exists())         //checks file exists or not  
 	                                  desktop.open(file);              //opens the specified file  
+									  logStageDuration("GRAPH open layout image", graphOpenImageStartTime, System.currentTimeMillis());
 	                                   }  
 	                                catch(Exception e)  
 	                                 {  
 	                                       e.printStackTrace();  
 	                                }
+						logStageDuration("GRAPH visualization total", graphVisualizationStartTime, System.currentTimeMillis());
 						
 						// End of code added by Sepide 
 						
@@ -897,9 +1088,18 @@ public class StarterAgent extends Agent
 						
 						//@Jason added exit to save CPU from running forever doing nothing and causing an early death for the CPU's lifespan
 						//System.exit(0);
-
-
+						}
+						else
+						{
+							sendNextQueryUserRequest();
+						}
 					}
+					
+					if (!isMobileAgentTweetDelayBypassEnabled())
+					{
+						break;
+					}
+					msg = myAgent.receive();
 				}
 				
 				block();
@@ -907,6 +1107,64 @@ public class StarterAgent extends Agent
 		});
 
 
+	}
+
+
+	private GraphGmlBuilder.Result buildCompletedGraphFile(File importantStuffDir) throws IOException {
+		if (myGui == null || myGui.fileChooser == null || myGui.fileChooser.getSelectedFile() == null) {
+			throw new IOException("No selected dataset is available for graph generation");
+		}
+
+		File selectedDataset = myGui.fileChooser.getSelectedFile();
+		String graphEdgesBaseName = getDatasetGraphBaseName(selectedDataset.getName());
+		File edgeListFile = new File(importantStuffDir, graphEdgesBaseName + ".txt");
+		File nameNumberFile = new File(importantStuffDir, "name-number-" + selectedDataset.getName());
+		File graphFile = new File(importantStuffDir, graphEdgesBaseName + ".gml");
+		return GraphGmlBuilder.build(edgeListFile, nameNumberFile, graphFile);
+	}
+
+	private <T> T requireGraphComponent(T component, String componentName) {
+		if (component == null) {
+			throw new IllegalStateException("Gephi component is unavailable: " + componentName);
+		}
+		return component;
+	}
+
+	private void reportGraphVisualizationFailure(String reason, Exception exception) {
+		String message = "GRAPH visualization skipped: " + reason + ". "
+				+ (exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage());
+		System.err.println(message);
+		exception.printStackTrace();
+		if (myGui != null) {
+			myGui.appendResult(message);
+			myGui.showMessageBox("finished simulation");
+		}
+	}
+
+
+	private boolean isMobileAgentTweetDelayBypassEnabled() {
+		return myGui != null && !myGui.isSimulateTweetDelayEnabled();
+	}
+
+
+	private String getGraphEdgesBaseName() {
+		if (myGui != null && myGui.fileChooser != null && myGui.fileChooser.getSelectedFile() != null) {
+			return getDatasetGraphBaseName(myGui.fileChooser.getSelectedFile().getName());
+		}
+		return "edges-numbers";
+	}
+
+	private String getDatasetGraphBaseName(String selectedFileName) {
+		String datasetName = selectedFileName;
+		int extensionIndex = datasetName.lastIndexOf('.');
+		if (extensionIndex > 0) {
+			datasetName = datasetName.substring(0, extensionIndex);
+		}
+		datasetName = datasetName.replaceAll("[^A-Za-z0-9._-]", "_");
+		if (datasetName.length() == 0) {
+			datasetName = "uploaded-dataset";
+		}
+		return "edges-numbers-" + datasetName;
 	}
 
 

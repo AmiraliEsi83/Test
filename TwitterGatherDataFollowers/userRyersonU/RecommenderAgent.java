@@ -26,7 +26,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -121,6 +123,18 @@ public class RecommenderAgent extends Agent
 	public static final int Doc2Vec = 4;     //added by Sepide
 	public static final int CommonNeighbors = 5;        // added by Sepide
 	public static final int K_MEANSEUCLIDEAN = 6;     // added by Sepide 
+	private static final String TWEET_BATCH_ONTOLOGY = "Tweet Batch From User Agent";
+	private static final String TWEET_BATCH_PRIMARY_REC_SERVER_PREFIX = "__PRIMARY_REC_SERVER__\t";
+	private static final boolean VERBOSE_TEXT_PROCESSING_DEBUG = false;
+	private static final boolean WRITE_TFIDF_DEBUG_FILES = false;
+	private static final int COS_SIM_LOCAL_TOP_MIN_RESULTS = 20;
+	private static final int COS_SIM_LOCAL_TOP_MULTIPLIER = 10;
+	private static final Pattern RETWEET_PATTERN = Pattern.compile("RT @");
+	private static final Pattern PUNCTUATION_PATTERN = Pattern.compile("[\\p{P}]");
+	private static final Pattern LINK_PATTERN = Pattern.compile("http[a-zA-Z0-9]*|bitly[a-zA-Z0-9]*|www[a-zA-Z0-9]*");
+	private static final Pattern SPECIAL_CHARACTER_PATTERN = Pattern.compile("[^a-zA-Z\\p{Z}]");
+	private static final Pattern NON_ALPHA_PATTERN = Pattern.compile("[^a-zA-Z ]");
+	private static final Pattern MULTI_SPACE_PATTERN = Pattern.compile(" +");
 	private static final double TEST_SET_PERCENT = 0.30;
 	private static final double TRAIN_SET_PERCENT = 0.70;
 	public static final int HIDDEN_NEURONS = 10;
@@ -286,6 +300,7 @@ public class RecommenderAgent extends Agent
 	// private LinkedHashMap<String,ArrayList<Long>> usersTweetIdsList = new LinkedHashMap<String,ArrayList<Long>>();
 	
 	private ArrayList<String> userRegisteredInRecAgent = new ArrayList<String>();
+	private Map<String,Integer> userPrimaryRecServer = new LinkedHashMap<String,Integer>();
 	private ArrayList<String> usersRec; //Users to be given recommendations
 	private int[] usersRecTweetCountsReceived;
 	
@@ -481,132 +496,19 @@ public class RecommenderAgent extends Agent
 				}
 			}
 
-			if (msg!=null && msg.getOntology() == "Tweet From User Agent")
-			{
-				tweetCount++;
-				if (tweetCount == 1)
-					firstTweetTime = System.nanoTime();
+				boolean receivedTweetData = false;
 				
-				ArrayList<String> currUserDocuments;
-				ArrayList<Long> currUserTweetIdList;
-				String tweetReceived;
-				String tweetUserReceived;
-				long tweetIdReceived;
-				String tweetTextReceived;
-				int totalTweetFromUser;
-				final byte[] utf16MessageBytes;
-				String tweetFolloweeName;
-				
-				tweetReceived = msg.getContent();
-				// tweetUserReceived = tweetReceived.split(" ",4)[1];
-				// tweetIdReceived = Long.valueOf(tweetReceived.split(" ",4)[2]);
-				// tweetTextReceived = tweetReceived.split(" ",4)[3];
-				// totalTweetFromUser = Integer.parseInt(tweetReceived.split(" ",4)[0]);
-				tweetUserReceived = tweetReceived.split(" ",5)[1];
-				tweetIdReceived = Long.valueOf(tweetReceived.split(" ",5)[2]);
-				tweetTextReceived = tweetReceived.split(" ",5)[4];
-				totalTweetFromUser = Integer.parseInt(tweetReceived.split(" ",5)[0]);
-				tweetFolloweeName = tweetReceived.split(" ",5)[3];
-				
-				// System.out.println("1tweetReceived:" +tweetReceived);
-				// System.out.println("2tweetReceived:" +totalTweetFromUser+","+tweetUserReceived+","+tweetIdReceived+","+tweetTextReceived+","+tweetFolloweeName);
-				
-				if (tweetUserReceived.equals("sageryereson"))
-					System.out.println("sageryerson: "+tweetReceived);
-				
-				if (!userFollowee.containsKey(tweetUserReceived))
-					userFollowee.put(tweetUserReceived,tweetFolloweeName);
-							
-				try{
-					utf16MessageBytes= tweetReceived.getBytes("UTF-16BE");
-				} catch (UnsupportedEncodingException e) {
-					throw new AssertionError("UTF-16BE not supported");
-					
-				}
-				totalMessageBytes += utf16MessageBytes.length;
-				// System.out.println("totalMessageBytes: "+totalMessageBytes);
-				
-				// if (tweetUserReceived.equals("TetraRyerson"))
-				// {
-					// System.out.println("From TetraRyerson: "+tweetTextReceived);
-				// }
-				
-				// try {
-					// FileWriter writer = new FileWriter("tweetsReceived"+String.valueOf(systemTimeName)+".txt", true); //append
-
-					// BufferedWriter bufferedWriter = new BufferedWriter(writer);
-		
-					// bufferedWriter.write(tweetUserReceived + "\t" + tweetIdReceived + "\t" + tweetTextReceived);
-					// bufferedWriter.newLine();
-
-					// bufferedWriter.close();
-				// } catch (IOException e) {
-					// e.printStackTrace();
-				// }
-				
-				if (usersRec.contains(tweetUserReceived))
+				if (msg!=null && "Tweet From User Agent".equals(msg.getOntology()))
 				{
-					int userIndex = usersRec.indexOf(tweetUserReceived);
-					usersRecTweetCountsReceived[userIndex]++;
-					
-					if (usersRecTweetCountsReceived[userIndex] == totalTweetFromUser)
-					{
-						ACLMessage msgLastTweetFromRecUser = new ACLMessage( ACLMessage.INFORM );
-						msgLastTweetFromRecUser.addReceiver( new AID(tweetUserReceived+"-UserAgent", AID.ISLOCALNAME) );
-						msgLastTweetFromRecUser.setPerformative( ACLMessage.INFORM );
-						msgLastTweetFromRecUser.setContent("Received Last Tweet");
-						msgLastTweetFromRecUser.setOntology("Last Tweet Received From Rec Agent");
-						send(msgLastTweetFromRecUser);
-					}
-					
+					receivedTweetData = recordTweetFromUserAgent(msg.getContent());
 				}
 				
-				/*if (!allUserDocuments.containsKey(tweetUserReceived))
+				if (msg!=null && TWEET_BATCH_ONTOLOGY.equals(msg.getOntology()))
 				{
-					currUserDocuments = new ArrayList<String>();
-					userRegisteredInRecAgent.add(tweetUserReceived);
-				}
-				else
-					currUserDocuments = allUserDocuments.get(tweetUserReceived);
-
-				currUserDocuments.add(tweetTextReceived);
-				allUserDocuments.put(tweetUserReceived, currUserDocuments);
-				 */
-				
-				if (!userRegisteredInRecAgent.contains(tweetUserReceived))
-				{
-					userRegisteredInRecAgent.add(tweetUserReceived);
+					receivedTweetData = recordTweetBatchFromUserAgent(msg);
 				}
 				
-				tweetIdText.put(tweetIdReceived, tweetTextReceived);
-				tweetIdUser.put(tweetIdReceived, tweetUserReceived);
-
-				//				if (!usersTweetIdsList.containsKey(tweetUserReceived))
-				//					currUserTweetIdList = new ArrayList<Long>();
-				//				else	
-				//					currUserTweetIdList = usersTweetIdsList.get(tweetUserReceived);
-				//
-				//				currUserTweetIdList.add(tweetIdReceived);
-				//				usersTweetIdsList.put(tweetUserReceived, currUserTweetIdList);
-
-				//@Jason see tweets before processing
-				/*try {
-					FileWriter writer = new FileWriter("tweetsRec.txt", true); //append
-
-					BufferedWriter bufferedWriter = new BufferedWriter(writer);
-
-					bufferedWriter.write(myAgent.getLocalName()+" "+msg.getContent()+" tweetCount: "+tweetCount);
-					bufferedWriter.newLine();
-
-					bufferedWriter.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}*/
-
-//				System.out.println(myAgent.getLocalName()+" "+msg.getContent()+" tweetCount: "+tweetCount+"/"+tweetsToReceive);
-//				System.out.println(myAgent.getLocalName()+" tweetCount: "+tweetCount+"/"+tweetsToReceive);
-
-				if(tweetCount == tweetsToReceive)
+					if(receivedTweetData && tweetCount >= tweetsToReceive)
 				{
 					long lastTweetTime = System.nanoTime();
 					/*System.out.println("tweetIdText: "+tweetIdText);
@@ -631,145 +533,45 @@ public class RecommenderAgent extends Agent
 					System.out.println("############### tweetCount: "+tweetCount);
 					System.out.println("@@@@@@@@@@@@@@@ tweetIdText.size(): "+ tweetIdText.size());
 
-					ArrayList<Long> tweetIdsToRemove = new ArrayList<Long>(); //tweetIdsToRemove because no useful info
+						startTimeTextProcessing = System.nanoTime();
 
-					startTimeTextProcessing = System.nanoTime();
-
-					for (Long currTweetId : tweetIdText.keySet())
-					{
-						LinkedHashMap<String,Double> tweetDocumentVector = new LinkedHashMap<String,Double>();
-						String currentText = tweetIdText.get(currTweetId);
-						
-						//pad out spaces before and after word for parsing 
-						currentText = String.format(" %s ",currentText);
-
-						// System.out.println("Original text: "+currentText);
-
-
-						//Remove Photo: tweets
-						if (currentText.contains("Photo:"))
-							currentText = currentText.substring(0,currentText.indexOf("Photo:"));
-
-						//Remove Photoset: tweets
-						if (currentText.contains("Photoset:"))
-							currentText = currentText.substring(0,currentText.indexOf("Photoset:"));
-
-						//Remove all retweets if flagged
-						Matcher matcher; //a matcher
-						if (currentText.contains("RT @") && retweetedby_temp == RE_TWEETS)
-							currentText="";
-						else
+						for (Long currTweetId : new ArrayList<Long>(tweetIdText.keySet()))
 						{
-							//Remove RT @, conserve the text from retweets
-							Pattern retweet = Pattern.compile("RT @");
-
-							matcher = retweet.matcher(currentText);
-							currentText = matcher.replaceAll("RT ");
-						}
-						//System.out.println("After RT @: " + currentText);
-
-						//Remove punctuations
-						Pattern punctuations = Pattern.compile("[\\p{P}]");
-						matcher = punctuations.matcher(currentText);
-						currentText = matcher.replaceAll("");
-
-						//System.out.println("After punctuations: "+ currentText);
-
-						//Remove url links
-						Pattern links = Pattern.compile("http[a-zA-Z0-9]*|bitly[a-zA-Z0-9]*|www[a-zA-Z0-9]*");
-						matcher = links.matcher(currentText);
-						currentText = matcher.replaceAll(" ");
-
-						//System.out.println("After url links: "+ currentText);
-
-						//Remove special characters including hash tags if flagged
-						if (hashtags_temp == HASH_TAGS)
-						{
-							Pattern specialCharacters = Pattern.compile("[^a-zA-Z\\p{Z}]");
-							matcher = specialCharacters.matcher(currentText);
-							currentText = matcher.replaceAll(" ");
-						}
-						// System.out.println("After special characters: " + currentText);
-
-						//Remove stop words if flagged
-						if (stopWordFlag_temp == STOP_WORDS)
-						{
-							for (String stopWord : stopWordsArray){	
-								if (currentText.toLowerCase().contains(" "+stopWord+" "))
-									//System.out.println("FOUND STOPWORD: "+stopWord);
-									currentText = currentText.toLowerCase().replaceAll(" "+stopWord+" "," ");
+							String currentText = tweetIdText.get(currTweetId);
+							ArrayList<String> processedTokens = tokenizeProcessedTweet(currentText);
+							if (processedTokens.size() < 3)
+							{
+								tweetIdText.remove(currTweetId);
+								tweetIdUser.remove(currTweetId);
+								continue;
 							}
-						}
-						//Change all text to lowercase
-						currentText=currentText.toLowerCase();
 
-						//Trim leading and ending white space
-						currentText=currentText.trim();
-						//Remove any non-alphabetical characters
-						currentText=currentText.replaceAll("[^a-zA-Z ]","");
-						//Shorten any spaces to just 1 single space
-						currentText=currentText.replaceAll(" +", " ");
-						//currentText=currentText.trim().replaceAll(" +", " ");
+							String currUserName = tweetIdUser.get(currTweetId);
+							if (currUserName == null)
+							{
+								tweetIdText.remove(currTweetId);
+								continue;
+							}
 
-						//System.out.println(getLocalName()+" Removed junk: "+currentText);
+							aggregatedUserTweets = allUserDocuments.get(currUserName);
+							if (aggregatedUserTweets == null)
+							{
+								aggregatedUserTweets = new LinkedHashMap<String,Double>();
+								allUserDocuments.put(currUserName, aggregatedUserTweets);
+							}
 
-						//******@Begin making vectors*************************************************
-						//Add processed texts to a list
-						Scanner sc = new Scanner(currentText);
-						//List<String> list = new ArrayList<String>();
-						String stringToken;
-						double wordFreq = 0.0;
-						int wordCount = 0;
-						wordCount = currentText.split("\\s+").length;
-
-						//System.out.println("currentText: "+ currentText);
-						//If processed text is a blank line with 1 single space or less than 3 words
-						if (wordCount < 3)
-						{
-							//System.out.println("DO NOT ADD");
-							tweetIdsToRemove.add(currTweetId);
-						}
-						else
-						{
-//							try {
-//								FileWriter writer = new FileWriter("demoTweetsVerification1000_tweet_words_users.txt", true); //append	
-//								BufferedWriter bufferedWriter = new BufferedWriter(writer);
-//								bufferedWriter.write(tweetIdUser.get(currTweetId)+": "+currentText);					
-//								bufferedWriter.newLine();
-//								bufferedWriter.close();
-//							} catch (IOException e) {
-//								e.printStackTrace();
-//							}
-							// System.out.println("final text processed: "+currentText);
-							
-							while (sc.hasNext()){
-								stringToken = sc.next();
-								//list.add(stringToken);
-
-								//Add all unique terms to allUniqueDocTerms
+							for (String stringToken : processedTokens)
+							{
 								allUniqueDocTerms.add(stringToken);
-
-								//Count frequency of words in a document
-								if (tweetDocumentVector.get(stringToken)!=null) //already exists in vector
-									wordFreq = tweetDocumentVector.get(stringToken)+1;
-								else //does not exist in vector yet
-									wordFreq = 1.0;
-
-								tweetDocumentVector.put(stringToken, wordFreq);
-							}
-							/*for (String s : list){
-									System.out.print(s+" ");
+								double wordFreq = 1.0;
+								if (aggregatedUserTweets.containsKey(stringToken))
+								{
+									wordFreq = aggregatedUserTweets.get(stringToken) + 1.0;
 								}
-								System.out.println();*/
-							sc.close();
-							//System.out.println();
-							//System.out.println("The length of string: "+currentText.length());
+								aggregatedUserTweets.put(stringToken, wordFreq);
+							}
 
-							tweetIdDocumentVector.put(currTweetId, tweetDocumentVector);
-
-						}
-
-					} //end for (Long currTweetId : usersTweetIdsList.get(curName))					
+						} //end for (Long currTweetId : usersTweetIdsList.get(curName))					
 
 					//					for (String curName: usersTweetIdsList.keySet())
 					//					{
@@ -909,119 +711,25 @@ public class RecommenderAgent extends Agent
 
 					//System.out.println("tweetIdText.size(): "+tweetIdText.size());
 
-					//Remove all tweetIds that are not useful							
-					for (Long tweetIdToRemove : tweetIdsToRemove)
-					{
-						if (tweetIdDocumentVector.containsKey(tweetIdToRemove))
-							tweetIdDocumentVector.remove(tweetIdToRemove);
-						if (tweetIdText.containsKey(tweetIdToRemove))
-							tweetIdText.remove(tweetIdToRemove);
-						if (tweetIdUser.containsKey(tweetIdToRemove))
-							tweetIdUser.remove(tweetIdToRemove);
+						System.out.println("XXXXXXXXXXXXX tweetIdText.size(): " + tweetIdText.size());
 
-						//						Iterator<Map.Entry<String,ArrayList<Long>>> iterator = usersTweetIdsList.entrySet().iterator();
-						//						while(iterator.hasNext()){
-						//							Map.Entry<String,ArrayList<Long>> entry = iterator.next();
-						//							for (int i = 0; i < entry.getValue().size(); i++)
-						//							{
-						//								if (entry.getValue().get(i) == tweetIdToRemove)
-						//								{
-						//									entry.getValue().remove(i);
-						//								}
-						//							}    
-						//							if (entry.getValue().size() == 0)
-						//								iterator.remove();
-						//						}
-
-
-					}
-
-					System.out.println("XXXXXXXXXXXXX tweetIdText.size(): " + tweetIdText.size());
-
-					long beforeAggregateTime = System.nanoTime();
-					//Aggregate each users' tweets into one document
-					for (Long currTweetId : tweetIdDocumentVector.keySet())
-					{
-						String currUserName = tweetIdUser.get(currTweetId);
-						LinkedHashMap<String,Double> currTweetIdDocumentVector = tweetIdDocumentVector.get(currTweetId);
-
-						if (!allUserDocuments.containsKey(currUserName))
-							aggregatedUserTweets = new LinkedHashMap<String,Double>();
-						else
-							aggregatedUserTweets = allUserDocuments.get(currUserName);
-
-						for (String currTerm : currTweetIdDocumentVector.keySet())
+						long beforeAggregateTime = System.nanoTime();
+						
+						//Write to file  code added by Sepide
+						if (algorithmRec == Doc2Vec)
 						{
-							double termFreq = 0.0;
-							if (aggregatedUserTweets.containsKey(currTerm))
-							{
-								termFreq = aggregatedUserTweets.get(currTerm);
-							}
-
-							termFreq += currTweetIdDocumentVector.get(currTerm);
-							aggregatedUserTweets.put(currTerm,termFreq);
+							writeDoc2VecUserDocumentFile();
 						}
-						allUserDocuments.put(currUserName, aggregatedUserTweets);
-					}
-					
-					//Write to file  code added by Sepide
-					BufferedWriter bf = null;
-                     
-                    String doc2vecDirName = "Dataset/424k/";
-					File doc2vecDir = new File(doc2vecDirName);
-					if (!doc2vecDir.exists())
-					{
-							doc2vecDir.mkdirs();
-					}
-					
-					try {
-					//bf = new BufferedWriter(new FileWriter("D:\\important-stuff\\Reduced_57-1-june12.txt"));  // commented out on Nov. 3
-					bf = new BufferedWriter(new FileWriter(doc2vecDirName+ "userdoc.txt"));
-					for (Map.Entry<String,LinkedHashMap<String,Double>> entry : allUserDocuments.entrySet()) {
-                          //for (Map.Entry<String,Double> entry2 : aggregatedUserTweets.entrySet()) {
-						// put key and value separated by a colon
-						//bf.write("\"" + entry.getValue() + "\"" + "," + entry.getKey());  // commented out on Nov.3
-			              LinkedHashMap<String,Double> entry2 = entry.getValue();
-						  
-						  for (Map.Entry<String,Double> entry3 : entry2.entrySet()){
-						    //String userUser = entry.getKey();
-						   //if (entry.getKey())
-						  //bf.write(entry.get(userUser).get()+ " ");
-						  bf.write(entry3.getKey()+ " ");
-						 // if (entry.getKey == )
-                          //bf.write(entry.getKey() + "\n" + entry.getValues.keySet());
-						// new line
+	                    
+						// End of code added by Sepide 
 						
-					  }
-					    bf.write(entry.getKey());
-					  //bf.write(entry.getKey());
-					   bf.newLine();
-                       }
-					bf.flush();
-						
-					}
-					catch (IOException e) {
-					  System.out.println("An error occurred.");
-					  e.printStackTrace();
-					}
-					
-					finally {
-
-					try {
-
-						// always close the writer
-						bf.close();
-					}
-					catch (Exception e) {
-					}
-				  }
-                    
-					// End of code added by Sepide 
-					
-					for (String u : allUserDocuments.keySet())
-					{
-						System.out.println(getLocalName()+" u: "+u);
-					}
+						if (VERBOSE_TEXT_PROCESSING_DEBUG)
+						{
+							for (String u : allUserDocuments.keySet())
+							{
+								System.out.println(getLocalName()+" u: "+u);
+							}
+						}
 					int followerCount = 0;
 					String followeeName;
 					List<String> followerNames;
@@ -1053,12 +761,15 @@ public class RecommenderAgent extends Agent
 						followeeFollowerCounts.put(followeeName,followerCount);
 					}
 					
-					for (String f: followeeFollowers.keySet())
-					{
-						List<String> fNames = followeeFollowers.get(f);
-						System.out.println(f+": "+followeeFollowerCounts.get(f));
-						System.out.println(fNames);
-					}
+						for (String f: followeeFollowers.keySet())
+						{
+							List<String> fNames = followeeFollowers.get(f);
+							System.out.println(f+": "+followeeFollowerCounts.get(f));
+							if (VERBOSE_TEXT_PROCESSING_DEBUG)
+							{
+								System.out.println(fNames);
+							}
+						}
 					
 					//-------------PRINTING OUT TF TO FILE***********************
 					// FileWriter writer;
@@ -1198,13 +909,14 @@ public class RecommenderAgent extends Agent
 					//					}
 
 
-					endTimeTextProcessing = System.nanoTime();
-					completionTimeTextProcessing = endTimeTextProcessing - startTimeTextProcessing;
-					System.out.println(getLocalName()+" completionTimeTextProcessing: "+convertMs(completionTimeTextProcessing)+" ms");
-					System.out.println(getLocalName()+ " After processing, tweets: "+ tweetIdText.size());
+						endTimeTextProcessing = System.nanoTime();
+						completionTimeTextProcessing = endTimeTextProcessing - startTimeTextProcessing;
+						int processedTweetCountForDisplay = tweetIdText.size();
+						System.out.println(getLocalName()+" completionTimeTextProcessing: "+convertMs(completionTimeTextProcessing)+" ms");
+					System.out.println(getLocalName()+ " After processing, tweets: "+ processedTweetCountForDisplay);
 
 					myGui.appendResult(getLocalName()+"completionTimeTextProcessing: "+convertMs(completionTimeTextProcessing)+" ms");
-					myGui.appendResult(getLocalName()+ "After processing, tweets: "+ tweetIdText.size());
+					myGui.appendResult(getLocalName()+ "After processing, tweets: "+ processedTweetCountForDisplay);
 					
 					//@Jason added code to deny querying for any user who have no tweet in database after text processing and tweeting simulation is complete 					
 
@@ -1238,7 +950,7 @@ public class RecommenderAgent extends Agent
 						FileWriter writer10;
 						writer10 = new FileWriter("numTextProcessed.txt", true); //append
 						BufferedWriter bufferedWriter = new BufferedWriter(writer10);
-						bufferedWriter.write(getLocalName()+ " Tweets After Processing: "+ tweetIdText.size()+" Tweets Before Processing: "+ tweetsToReceive);
+						bufferedWriter.write(getLocalName()+ " Tweets After Processing: "+ processedTweetCountForDisplay+" Tweets Before Processing: "+ tweetsToReceive);
 						bufferedWriter.newLine();
 						bufferedWriter.close();
 					} catch (IOException e) {
@@ -1334,10 +1046,9 @@ public class RecommenderAgent extends Agent
 
 					System.out.println(getLocalName()+ " Text Processing Complete");
 
-				}
-			}
+					}
 
-			//@Jason added new message to start recommending
+				//@Jason added new message to start recommending
 			if (msg!=null && msg.getOntology()=="Start Recommend Algorithms" && msg.getPerformative()==ACLMessage.REQUEST && calculateAlready==false)
 			{
 
@@ -1381,7 +1092,10 @@ public class RecommenderAgent extends Agent
 				for (String curName : allUserDocuments.keySet())
 				{
 					LinkedHashMap<String,Double> curDoc = allUserDocuments.get(curName);
-					System.out.println("============================================");
+						if (VERBOSE_TEXT_PROCESSING_DEBUG)
+						{
+							System.out.println("============================================");
+						}
 					//System.out.println(" Sepide testing if the document includes the users with their aggregated tweets" + allUserDocuments.get(curName));  // added by Sepide
 					for (String docTerm : curDoc.keySet())
 					{
@@ -1609,10 +1323,13 @@ public class RecommenderAgent extends Agent
 				System.out.println(getLocalName()+" completionTimeTFIDF: "+convertMs(completionTimeTFIDF)+" ms");
 				myGui.appendResult(getLocalName()+" completionTimeTFIDF: "+convertMs(completionTimeTFIDF)+" ms");
 
-				for (String userHere: allUserDocumentsTFIDF.keySet())
-				{
-					System.out.println(getLocalName()+" userHere: "+userHere+" "+allUserDocumentsTFIDF.get(userHere).size());
-				}
+					if (VERBOSE_TEXT_PROCESSING_DEBUG)
+					{
+						for (String userHere: allUserDocumentsTFIDF.keySet())
+						{
+							System.out.println(getLocalName()+" userHere: "+userHere+" "+allUserDocumentsTFIDF.get(userHere).size());
+						}
+					}
 				
 				//WORD CHECKING
 				// FileWriter writerWords;
@@ -1680,56 +1397,59 @@ public class RecommenderAgent extends Agent
 				
 
 				
-				FileWriter writer11;
+				if (WRITE_TFIDF_DEBUG_FILES)
+				{
+					FileWriter writer11;
 				    try {   // from line 1602 to 1626 is uncommented  
-					 writer11 = new FileWriter("tfidf_matrix.txt", true); //append
-					 BufferedWriter bufferedWriter = new BufferedWriter(writer11);
-					 bufferedWriter.write(totalDocuments+"\t");
-					 for (String userNames : allUserDocumentsTFIDF.keySet())
-					 {
-						 bufferedWriter.write(userNames+"\t");
-					  }
-					   bufferedWriter.newLine();
-					   for (String uniqueTerm: allUniqueDocTerms)
-					  {
-						  bufferedWriter.write(uniqueTerm+"\t");
-						  for (String userNames : allUserDocumentsTFIDF.keySet())
-						  {
-							  double tfidfValue = 0.0;
-							  if (allUserDocumentsTFIDF.get(userNames).containsKey(uniqueTerm))
-								  tfidfValue = allUserDocumentsTFIDF.get(userNames).get(uniqueTerm);
-							  bufferedWriter.write(tfidfValue+"\t");
+						 writer11 = new FileWriter("tfidf_matrix.txt", true); //append
+						 BufferedWriter bufferedWriter = new BufferedWriter(writer11);
+						 bufferedWriter.write(totalDocuments+"\t");
+						 for (String userNames : allUserDocumentsTFIDF.keySet())
+						 {
+							 bufferedWriter.write(userNames+"\t");
 						  }
 						   bufferedWriter.newLine();
-					   }
-					   bufferedWriter.close();
-				   } catch (IOException e) {
-					  e.printStackTrace();
-				  } 
-				
-				try {
-					int uniqueWordsSize = allUniqueDocTerms.size();
-					writer11 = new FileWriter("uniqueWords.txt", true); //append
-					BufferedWriter bufferedWriter = new BufferedWriter(writer11);
-					bufferedWriter.write(String.valueOf(uniqueWordsSize));
-					bufferedWriter.newLine();
-					bufferedWriter.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				
-				try {
-					writer11 = new FileWriter("docFreqWords.txt", true); //append
-					BufferedWriter bufferedWriter = new BufferedWriter(writer11);
-					for (String docTerm: allTermsDocumentFreq.keySet())
-					{
-						bufferedWriter.write(docTerm+"\t"+allTermsDocumentFreq.get(docTerm));
+						   for (String uniqueTerm: allUniqueDocTerms)
+						  {
+							  bufferedWriter.write(uniqueTerm+"\t");
+							  for (String userNames : allUserDocumentsTFIDF.keySet())
+							  {
+								  double tfidfValue = 0.0;
+								  if (allUserDocumentsTFIDF.get(userNames).containsKey(uniqueTerm))
+									  tfidfValue = allUserDocumentsTFIDF.get(userNames).get(uniqueTerm);
+								  bufferedWriter.write(tfidfValue+"\t");
+							  }
+							   bufferedWriter.newLine();
+						   }
+						   bufferedWriter.close();
+					   } catch (IOException e) {
+						  e.printStackTrace();
+					  } 
+					
+					try {
+						int uniqueWordsSize = allUniqueDocTerms.size();
+						writer11 = new FileWriter("uniqueWords.txt", true); //append
+						BufferedWriter bufferedWriter = new BufferedWriter(writer11);
+						bufferedWriter.write(String.valueOf(uniqueWordsSize));
 						bufferedWriter.newLine();
+						bufferedWriter.close();
+					} catch (IOException e) {
+						e.printStackTrace();
 					}
 					
-					bufferedWriter.close();
-				} catch (IOException e) {
-					e.printStackTrace();
+					try {
+						writer11 = new FileWriter("docFreqWords.txt", true); //append
+						BufferedWriter bufferedWriter = new BufferedWriter(writer11);
+						for (String docTerm: allTermsDocumentFreq.keySet())
+						{
+							bufferedWriter.write(docTerm+"\t"+allTermsDocumentFreq.get(docTerm));
+							bufferedWriter.newLine();
+						}
+						
+						bufferedWriter.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
 			
 				//-------------PRINTING OUT TF TO FILE***********************
@@ -1779,7 +1499,7 @@ public class RecommenderAgent extends Agent
 				
 				
 				//Create Arff files for Weka, *INCORRECT*Only determineTrainingTestSet when it is a single node and algorithmRec == SVM
-				 if (algorithmRec == SVM || algorithmRec == MLP )
+				 if ((algorithmRec == SVM && !isSvmBatchMode()) || algorithmRec == MLP )
 				{
 					
 					System.out.println("Test Sepide to see if the arff file is created");
@@ -1834,14 +1554,7 @@ public class RecommenderAgent extends Agent
 								uniqueWordCountTrain++;
 							}
 							
-							String attributeClass = "@attribute result ";
-							StringJoiner classJoiner = new StringJoiner(",","{","}");
-							for (String className: followeeFollowers.keySet())
-							{
-								classJoiner.add(className);
-							}
-							
-							attributeClass += classJoiner.toString();
+							String attributeClass = buildArffClassAttribute(followeeFollowers.keySet());
 							
 							bufferedWriterTrain.write(attributeClass);
 							bufferedWriterData.write(attributeClass);
@@ -1891,8 +1604,8 @@ public class RecommenderAgent extends Agent
 								// }
 								tfidfJoiner = vectorArffFormat(currDocTfidf,allUniqueDocTerms);
 								
-								bufferedWriterTrain.write(tfidfJoiner.toString() + "," + userFollowee.get(currUser));
-								bufferedWriterData.write(tfidfJoiner.toString() + "," + userFollowee.get(currUser));
+								bufferedWriterTrain.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
+								bufferedWriterData.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
 								//S bufferedWriterData.write(tfidfJoiner.toString());
 								bufferedWriterTrain.newLine();
 								bufferedWriterData.newLine();
@@ -1920,7 +1633,7 @@ public class RecommenderAgent extends Agent
 								tfidfJoiner = vectorArffFormat(currDocTfidf,allUniqueDocTerms);
 								
 								
-								bufferedWriterData.write(tfidfJoiner.toString() + "," + userFollowee.get(currUser));
+								bufferedWriterData.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
 								//S bufferedWriterData.write(tfidfJoiner.toString());
 								
 								bufferedWriterData.newLine();
@@ -2072,14 +1785,7 @@ public class RecommenderAgent extends Agent
 							uniqueWordCountTest++;
 						}
 						
-						String attributeClass = "@attribute result ";
-						StringJoiner classJoiner = new StringJoiner(",","{","}");
-						for (String className: followeeFollowers.keySet())
-						{
-							classJoiner.add(className);
-						}
-						
-						attributeClass += classJoiner.toString();
+						String attributeClass = buildArffClassAttribute(followeeFollowers.keySet());
 						
 						
 						bufferedWriterTest.write(attributeClass);
@@ -2129,7 +1835,7 @@ public class RecommenderAgent extends Agent
 							
 							tfidfJoiner = vectorArffFormat(currDocTfidf,allUniqueDocTerms);
 								
-							bufferedWriterTest.write(tfidfJoiner.toString() + "," + userFollowee.get(currUser));
+							bufferedWriterTest.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
 							bufferedWriterTest.newLine();	
 						}
 						bufferedWriterTest.close();
@@ -2139,7 +1845,7 @@ public class RecommenderAgent extends Agent
 							Map<String,Double> currDocTfidf = allUserDocumentsTFIDF.get(currUser);							
 							tfidfJoiner = vectorArffFormat(currDocTfidf,allUniqueDocTerms);
 							
-							bufferedWriterRecommend.write(tfidfJoiner.toString() + "," + userFollowee.get(currUser));
+							bufferedWriterRecommend.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
 							bufferedWriterRecommend.newLine();
 						}
 						bufferedWriterRecommend.close();	
@@ -2175,76 +1881,21 @@ public class RecommenderAgent extends Agent
 						followeeRecName.delete();
 					}  */
 					
-					List<String> tweets = new ArrayList<>();
-					try (BufferedReader reader = new BufferedReader(new FileReader(myGui.fileChooser.getSelectedFile()))) {
-						String line;
-						while ((line = reader.readLine()) != null) {
-							tweets.add(line);
-						}
-					}
-					catch (IOException e) {
-					  System.out.println("An error occurred.");
-					  e.printStackTrace();
-					}
-					
-					int numFiles = Integer.parseInt(myGui.numNodesField.getText());
-					try {
-					// Create a BufferedWriter for each file
-					List<BufferedWriter> writers = new ArrayList<>();
-					for (int i = 0; i < numFiles; i++) {
-						writers.add(new BufferedWriter(new FileWriter(doc2vecDirName + "part" + (i + 1) + "_" + ".txt")));
-					}
-					
-					// Specify which column contains the user ID (0-based index)
-					int userColumn = 4;
-					
-					// Specify which user's tweets should be written to all files
-					String specificUser = usersRec.get(0).toString();
-					
-					 // Specify which columns to include in the output (0-based index)
-					int[] columnsToInclude = {5, 4};
-					
-					// Iterate over each row in the dataset
-					int fileIndex = 0;
-					
-					for (String row : tweets) {
-						// Split row into columns
-						String[] columns = row.split("\t");
-
-						// Create a new row with only desired columns
-						StringBuilder newRow = new StringBuilder();
-						for (int j = 0; j < columnsToInclude.length; j++) {
-							newRow.append(columns[columnsToInclude[j]]);
-							if (j < columnsToInclude.length - 1) {
-								newRow.append("\t");
+						int numFiles = Integer.parseInt(myGui.numNodesField.getText());
+						try {
+							if ("1".equals(nodeNumber))
+							{
+								writeDoc2VecCompatibilityPartFiles(myGui.fileChooser.getSelectedFile(), doc2vecDirName, numFiles, usersRec.get(0).toString());
+							}
+							else
+							{
+								System.out.println(getLocalName()+" skipping Doc2Vec compatibility file split; Recommender-ServiceAgent1 handles it");
 							}
 						}
-
-						// Check if row belongs to specific user
-						if (columns[userColumn].equals(specificUser)) {
-							// Write new row to all files
-							for (BufferedWriter writer : writers) {
-								writer.write(newRow.toString());
-								writer.newLine();
-							}
-						} else {
-							// Write new row to one file using round-robin approach
-							writers.get(fileIndex).write(newRow.toString());
-							writers.get(fileIndex).newLine();
-							fileIndex = (fileIndex + 1) % numFiles;
+						catch (IOException e) {
+						  System.out.println("An error occurred.");
+						  e.printStackTrace();
 						}
-					}
-
-					// Close all writers
-					for (BufferedWriter writer : writers) {
-						writer.close();
-					}
-					
-					}
-					catch (IOException e) {
-					  System.out.println("An error occurred.");
-					  e.printStackTrace();
-					}
 					
 				    determineTrainingTestSet();
 					dataSetUsers = new ArrayList<String>(trainSetUsers);
@@ -2318,199 +1969,36 @@ public class RecommenderAgent extends Agent
 					usersForRec = usersRec.toArray(usersForRec);
 
 					allUserScores = new TreeMap<String,TreeMap<String,Double>>();
-					Map<String,Double> userScore1 = new TreeMap<String,Double>();
-					Map<String,Double> userScore2 = new TreeMap<String,Double>();
-					double magnitudeVector1=0.0,magnitudeVector2=0.0; //magnitude of vectors
-					double dpVectors=0.0; //dot product of vectors
-					double score=0.0,prevScore=0.0,newScore=0.0;
-					Set<String> lowerTermsVector; 
-					Set<String> higherTermsVector;		
-					int docTermCount=0;
-					int higherTermsUserIndex, higherTermsUserDocIndex, lowerTermsUserIndex, lowerTermsUserDocIndex;
+					System.out.println(getLocalName()+ "CALCULATING COS-SIM SCORES");
 
-					//initialize scores to 0.0
-					System.out.println(getLocalName()+ "Initialized Scores to 0.0");
+					int localResultLimit = getCosSimLocalResultLimit();
 
 					for (int i = 0; i < usersForRec.length; i++)
 					{
-						for (int j = 0; j < users.length; j++)
-						{
-							if (!usersForRec[i].equals(users[j]))
-							{
-								userScore1.put(users[j], 0.0);
-								allUserScores.put(usersForRec[i],(TreeMap<String,Double>) userScore1);
-							}
-						}
-						userScore1 = new TreeMap<String,Double>();
-					}
+						String recUser = usersForRec[i];
+						LinkedHashMap<String, Double> recDoc = allUserDocumentsTFIDF.get(recUser);
+						TreeMap<String,Double> userScores = new TreeMap<String,Double>();
 
-					/*
-						for (int i = 0; i < users.length; i++)
+						if (recDoc != null)
 						{
 							for (int j = 0; j < users.length; j++)
 							{
-								if (!users[i].equals(users[j]))
+								String candidateUser = users[j];
+								if (!recUser.equals(candidateUser))
 								{
-									userScore1.put(users[j], 0.0);
-									allUserScores.put(users[i],(TreeMap<String,Double>) userScore1);
+									LinkedHashMap<String, Double> candidateDoc = allUserDocumentsTFIDF.get(candidateUser);
+									double score = calculateSparseCosineScore(recDoc, candidateDoc);
+									userScores.put(candidateUser, score);
 								}
 							}
-							//userScore1 = new LinkedHashMap<String,Double>();
-							userScore1 = new TreeMap<String,Double>();
 						}
-					 */
 
-					//System.out.println(getLocalName()+" allUserScores: "+allUserScores);
-
-
-					System.out.println(getLocalName()+ "CALCULATING COS-SIM SCORES");
-					//System.out.println();
-
-					/*
-					//cos Sim with each individual tweets
-					for (int i = 0; i < usersForRec.length; i++)
-					{
-						for (int j = 0; j < users.length; j++)
+						if (numRecAgents > 1)
 						{
-							if (!usersForRec[i].equals(users[j]))
-							{
-								int size1 = allUserDocumentsTFIDF.get(usersForRec[i]).size();
-								int size2 = allUserDocumentsTFIDF.get(users[j]).size();
-								ArrayList<LinkedHashMap<String, Double>> doc1 = allUserDocumentsTFIDF.get(usersForRec[i]);
-								ArrayList<LinkedHashMap<String, Double>> doc2 = allUserDocumentsTFIDF.get(users[j]);
-
-								//get documents from users[i]
-								for (int k=0; k < size1; k++)
-								{
-									//get documents from users[j]				
-									for (int l=0; l < size2; l++)
-									{
-										//System.out.println("COSSIM: "+allUserDocumentsTFIDF.get(users[i]).get(k)+"\t"+allUserDocumentsTFIDF.get(users[j]).get(l));
-
-										Set<String> terms1 = doc1.get(k).keySet();
-										Set<String> terms2 = doc2.get(l).keySet();
-										LinkedHashMap<String,Double> docTerms1 = doc1.get(k);
-										LinkedHashMap<String,Double> docTerms2 = doc2.get(l);
-
-										for (String termUser1 : terms1)
-										{
-											//keeps count of when document k has gone through all its terms
-											docTermCount++;
-											for (String termUser2 : terms2)
-											{
-
-												if (termUser1.equals(termUser2))
-												{
-													//System.out.print("SAME TERMS "+termUser1+" "+termUser2+" ");
-													//System.out.print("dp: "+allUserDocumentsTFIDF.get(users[j]).get(l).get(termUser2)+"*"+allUserDocumentsTFIDF.get(users[i]).get(k).get(termUser1)+"\t");
-													dpVectors+=docTerms2.get(termUser2)*docTerms1.get(termUser1);
-												}
-											}
-										}
-
-										score=dpVectors;
-
-										userScore1 = allUserScores.get(usersForRec[i]);
-										//userScore2 = allUserScores.get(users[j]);
-										if (userScore1.containsKey(users[j]))
-										{
-											prevScore = userScore1.get(users[j]);
-											newScore = prevScore + score;
-											userScore1.put(users[j], newScore);
-										}
-										else if (!userScore1.containsKey(users[j]))
-										{
-											userScore1.put(users[j], score);
-										}
-										/*
-											if (userScore2.containsKey(users[i]))
-											{
-												prevScore = userScore2.get(users[i]);
-												newScore = prevScore + score;
-												userScore2.put(users[i], newScore);
-											}
-											else if (!userScore2.containsKey(users[i]))
-											{
-												userScore1.put(users[i], score);
-											}
-					 */
-					//System.out.println("score: "+score);
-					/*			dpVectors=0.0;
-										docTermCount=0;
-										score=0.0;
-									}
-									allUserScores.put(usersForRec[i],(TreeMap<String,Double>)userScore1);
-									//allUserScores.put(users[j],(TreeMap<String,Double>)userScore2);
-								}
-							}
-						} //end for users.length
-					} //end for usersForRec.length
-					 */
-					//cosSim for aggregated tweets
-					for (int i = 0; i < usersForRec.length; i++)
-					{
-						for (int j = 0; j < users.length; j++)
-						{
-							if (!usersForRec[i].equals(users[j]))
-							{
-								LinkedHashMap<String, Double> doc1 = allUserDocumentsTFIDF.get(usersForRec[i]);
-								LinkedHashMap<String, Double> doc2 = allUserDocumentsTFIDF.get(users[j]);
-
-								//System.out.println("COSSIM: "+allUserDocumentsTFIDF.get(usersForRec[i])+"\t"+allUserDocumentsTFIDF.get(users[j]));
-
-								Set<String> terms1 = doc1.keySet();
-								Set<String> terms2 = doc2.keySet();
-
-								for (String termUser1 : terms1)
-								{
-									for (String termUser2 : terms2)
-									{
-
-										if (termUser1.equals(termUser2))
-										{
-											//System.out.print("SAME TERMS "+termUser1+" "+termUser2+" ");
-											//System.out.print("dp: "+allUserDocumentsTFIDF.get(users[j]).get(termUser2)+"*"+allUserDocumentsTFIDF.get(usersForRec[i]).get(termUser1)+"\t");
-											dpVectors+=doc2.get(termUser2)*doc1.get(termUser1);
-										}
-									}
-								}
-
-								score=dpVectors;
-
-								userScore1 = allUserScores.get(usersForRec[i]);
-								//userScore2 = allUserScores.get(users[j]);
-								if (userScore1.containsKey(users[j]))
-								{
-									prevScore = userScore1.get(users[j]);
-									newScore = prevScore + score;
-									userScore1.put(users[j], newScore);
-								}
-								else if (!userScore1.containsKey(users[j]))
-								{
-									userScore1.put(users[j], score);
-								}
-								/*
-											if (userScore2.containsKey(users[i]))
-											{
-												prevScore = userScore2.get(users[i]);
-												newScore = prevScore + score;
-												userScore2.put(users[i], newScore);
-											}
-											else if (!userScore2.containsKey(users[i]))
-											{
-												userScore1.put(users[i], score);
-											}
-								 */
-								//System.out.println("score: "+score);
-								dpVectors=0.0;
-								score=0.0;
-
-								allUserScores.put(usersForRec[i],(TreeMap<String,Double>)userScore1);
-								//allUserScores.put(users[j],(TreeMap<String,Double>)userScore2);
-
-							}
-						} //end for users.length
-					} //end for usersForRec.length
+							userScores = keepTopCosSimScores(userScores, localResultLimit);
+						}
+						allUserScores.put(recUser, userScores);
+					}
 
 
 					// System.out.println(getLocalName()+" After COS SIM scores: "+allUserScores);
@@ -4352,7 +3840,18 @@ public class RecommenderAgent extends Agent
 				//SVM Recommendation?
 				else if (algorithmRec == SVM)
 				{
-					
+					if (isSvmBatchMode())
+					{
+						startTimeAlgorithm = System.nanoTime();
+						allUserScores = runIndependentSvmBatchRecommendations();
+						endTimeAlgorithm = System.nanoTime();
+						completionTimeAlgorithm = endTimeAlgorithm - startTimeAlgorithm;
+						textprocessing_wb_or_tfidf_Data.add("SVM-Batch=TP+TFIDF+SVM" + "\t" + agentName + "\t" + tweetCount + "\t" + completionTimeTextProcessing + "\t" + completionTimeTFIDF    + "\t" + completionTimeAlgorithm + "\t" + System.getProperty("line.separator"));
+						System.out.println("Mapper"+nodeNumber+"- Total Tweets Processed: " + tweetCount + " TP: " + convertMs(completionTimeTextProcessing) + " ms TFIDF: " + convertMs(completionTimeTFIDF) + " ms Reducer"+ nodeNumber+ " SVM Batch: " + convertMs(completionTimeAlgorithm) + " ms Total: " + convertMs(completionTimeTextProcessing+completionTimeTFIDF+completionTimeAlgorithm)+" ms");
+						myGui.appendResult("Mapper"+nodeNumber+"- Total Tweets Processed: " + tweetCount + " TP: " + convertMs(completionTimeTextProcessing) + " ms TFIDF: " + convertMs(completionTimeTFIDF) + " ms Reducer"+ nodeNumber+ " SVM Batch: " + convertMs(completionTimeAlgorithm) + " ms Total: " + convertMs(completionTimeTextProcessing+completionTimeTFIDF+completionTimeAlgorithm)+" ms");
+					}
+					else
+					{
 					SMO svmModel = null;
 					SMO smoModel = null;
 					LibSVM libSVMModel = null;
@@ -4374,8 +3873,8 @@ public class RecommenderAgent extends Agent
 					svmModel = new SMO();
 					smoModel = new SMO();
 					libSVMModel = new LibSVM();
-					svmModel.setC(0.1);   // added by Sepide  Jan.17
-					smoModel.setC(0.1);   // added by Sepide  Jan. 17
+					configureSvmModel(svmModel);   // added by Sepide  Jan.17
+					configureSvmModel(smoModel);   // added by Sepide  Jan. 17
 					
 										
 					try{
@@ -4485,9 +3984,10 @@ public class RecommenderAgent extends Agent
 					// for (int i = 0; i < test.numInstances(); i++) {
 					double clsLabel = 0.0;
 					Map<String,String> userPredictedFollowee = new LinkedHashMap<String,String>();
+					Map<String,TreeMap<String,Double>> userSvmScores = new LinkedHashMap<String,TreeMap<String,Double>>();
 					String predictedClass;
-					//For just recommended user
-					for (int i = 0; i < recommendInstances.numInstances(); i++) {
+						//For just recommended user
+						for (int i = 0; i < recommendInstances.numInstances(); i++) {
 						
 						try {
 							clsLabel = svmModel.classifyInstance(recommendInstances.instance(i));
@@ -4500,14 +4000,16 @@ public class RecommenderAgent extends Agent
 						
 						predictedLabelsRec.instance(i).setClassValue(clsLabel);
 						
-						if (i == recommendInstances.numInstances()-1)
-						{
 							predictedClass = predictedLabelsRec.instance(i).stringValue(data.numAttributes()-1);
-			//				System.out.println(predictedLabels.instance(i).stringValue(data.numAttributes()-2));
+							//				System.out.println(predictedLabels.instance(i).stringValue(data.numAttributes()-2));
 							System.out.println(getLocalName()+" Recommended Class: "+predictedLabelsRec.instance(i).stringValue(data.numAttributes()-1));
-							userPredictedFollowee.put(usersRec.get(i),predictedClass);
+							if (i < usersRec.size())
+							{
+								userPredictedFollowee.put(usersRec.get(i),predictedClass);
+								double[] classDistribution = getSvmClassDistribution(svmModel, recommendInstances, i);
+								userSvmScores.put(usersRec.get(i), buildFolloweeScoreMapFromDistribution(recommendInstances, classDistribution, predictedClass));
+							}
 						}
-					}
 
 					//For entire test set
 					for (int i = 0; i < test.numInstances(); i++) {
@@ -4557,22 +4059,7 @@ public class RecommenderAgent extends Agent
 					// end of code added Jan 14
 					
 					allUserScores = new TreeMap<String,TreeMap<String,Double>>();
-					Map<String,Double> userScore1 = new TreeMap<String,Double>();
-					double followeeScore = 0.0;
-					for (String recUser : userPredictedFollowee.keySet())
-					{
-						for (String followeeUser: followeeFollowers.keySet())
-						{
-							if (userPredictedFollowee.get(recUser).equals(followeeUser))
-								followeeScore = 1.0;
-							else
-								followeeScore = 0.0;
-							
-							userScore1.put(followeeUser,followeeScore);
-						}
-						allUserScores.put(recUser,(TreeMap<String,Double>)userScore1);
-						userScore1 = new TreeMap<String,Double>();
-					}
+					allUserScores.putAll(userSvmScores);
 					
 					try {
 						System.out.println(eval.toMatrixString());
@@ -4592,6 +4079,7 @@ public class RecommenderAgent extends Agent
 					System.out.println("Mapper"+nodeNumber+"- Total Tweets Processed: " + tweetCount + " TP: " + convertMs(completionTimeTextProcessing) + " ms TFIDF: " + convertMs(completionTimeTFIDF) + " ms Reducer"+ nodeNumber+ " SVM: " + convertMs(completionTimeAlgorithm) + " ms Total: " + convertMs(completionTimeTextProcessing+completionTimeTFIDF+completionTimeAlgorithm)+" ms");
 //					myGui.appendResult(agentName+"\nTotal Tweets Processed: " + tweetCount + " TP:" + round(completionTimeTextProcessing/1000000.00,2) + "ms TFIDF:" + round(completionTimeTFIDF/1000000.00,2) + "ms K-means:" + round(completionTimeAlgorithm/1000000.00,2) + "ms Total:" + round((completionTimeTextProcessing+completionTimeTFIDF+completionTimeAlgorithm)/1000000.00,2)+"ms");
 					myGui.appendResult("Mapper"+nodeNumber+"- Total Tweets Processed: " + tweetCount + " TP: " + convertMs(completionTimeTextProcessing) + " ms TFIDF: " + convertMs(completionTimeTFIDF) + " ms Reducer"+ nodeNumber+ " SVM: " + convertMs(completionTimeAlgorithm) + " ms Total: " + convertMs(completionTimeTextProcessing+completionTimeTFIDF+completionTimeAlgorithm)+" ms");
+					}
 				}
 				
 				// Code added by Sepide
@@ -4619,9 +4107,8 @@ public class RecommenderAgent extends Agent
 						//System.out.println("File path" + myGui.fileChooser.getSelectedFile());
 						//File txtFile = new File((myGui.fileChooser.getSelectedFile()));
 						//String contents = FileUtils.readFileToString(fileFromGui);
-						String filePath = fileFromGui.getPath();
+						String filePath = fileFromGui.getAbsolutePath();
 						System.out.println("File Path for Sepide:" + filePath);
-                        String contents = FileUtils.readFileToString(fileFromGui);
                         String doc2vecDirName = "Dataset/424k/";
 					    File doc2vecDir = new File(doc2vecDirName);
 						if (!doc2vecDir.exists())
@@ -4632,7 +4119,7 @@ public class RecommenderAgent extends Agent
 						//myCSV = myGui.fileChooser.getSelectedFile();
 						//nodeNumInt = Integer.parseInt((myGui.numNodesField.getText()));
 						//out_file_pattern = doc2vecDirName + "data_set_doc2vec_"+nodeNumber+".txt";
-						out_file_pattern = doc2vecDirName + "part" + nodeNumber + "_" + ".txt";
+						out_file_pattern = filePath;
 						//out_file_pattern = dataSetFilePath;
 						//out_file_pattern = doc2vecDirName+"data_set_doc2vec_"+getLocalName()+".txt";
 						//System.out.println("File path: "+ txtFile);
@@ -4658,7 +4145,17 @@ public class RecommenderAgent extends Agent
 					
 					//java.lang.ProcessBuilder pb = new ProcessBuilder("C:/Program Files/Python39/python.exe","D:/Simulator-S-15-May-2020/TwitterGatherDataFollowers/userRyersonU/doc2vec.py",""+usersRec.get(0).toString(),""+topn,""+myCSV).inheritIO();
 					//java.lang.ProcessBuilder pb = new ProcessBuilder("C:/Program Files/Python39/python.exe",doc2vecDirLoc + "doc2vec.py",""+usersRec.get(0).toString(),""+topn,""+out_file_pattern,""+nodeNumber).inheritIO();
-					java.lang.ProcessBuilder pb = new ProcessBuilder("python",doc2vecDirLoc + "doc2vec.py",""+usersRec.get(0).toString(),""+topn,""+out_file_pattern,""+nodeNumber);
+					int doc2vecWorkers = Math.min(Math.max(Runtime.getRuntime().availableProcessors() - 1, 1), 12);
+					java.lang.ProcessBuilder pb = new ProcessBuilder(
+						"python",
+						doc2vecDirLoc + "doc2vec_shared.py",
+						""+usersRec.get(0).toString(),
+						""+topn,
+						""+out_file_pattern,
+						""+nodeNumber,
+						""+numRecAgents,
+						""+doc2vecWorkers
+					);
 					//java.lang.ProcessBuilder pb = new ProcessBuilder("C:/Program Files/Python39/python.exe","D:/Simulator-S-15-May-2020/TwitterGatherDataFollowers/userRyersonU/doc2vec3.py",""+usersRec.get(0).toString(),""+topn,""+myGui.fileChooser.getSelectedFile()).inheritIO();
                     
 					Process p = pb.start();
@@ -5312,8 +4809,9 @@ public class RecommenderAgent extends Agent
 					
 					BackPropagation nodeLearningRule = (BackPropagation) nodeMLP.getLearningRule();
 					nodeLearningRule.setLearningRate(LEARNING_RATE_MLP);
-					nodeLearningRule.setMaxError(MAX_ERROR_MLP);  
-					
+					nodeLearningRule.setMaxError(MAX_ERROR_MLP);
+					//nodeLearningRule.setMaxIterations(100);
+
 					System.out.println(getLocalName()+" training MLP");
 					
 					startTimeTrain = System.nanoTime();
@@ -6050,124 +5548,19 @@ public class RecommenderAgent extends Agent
 				else if (centralTestSetUsers.contains(userInstance))
 					testSetUsers.add(userInstance);
 			}
+			Collections.sort(trainSetUsers);
+			Collections.sort(testSetUsers);
 		}
-		
+
 		private void determineTrainingTestSet()
 		{
 			int numUsers = allUserDocuments.keySet().size();
-			System.out.println("For sepideee the all userDocuments size " + numUsers + "\n");
-			int numTestUsers = (int) Math.floor(numUsers * TEST_SET_PERCENT);
-			int numTrainUsers = numUsers - numTestUsers;
-			int currTestUsers = 0;
-			int currTrainUsers = 0;
-			testSetUsers = new ArrayList<String>(); //list of users in test set
-			trainSetUsers = new ArrayList<String>(); //list of users in training set
-			List<String> currFollowers; //list of followers for the current followee
-			Map<String,List<String>> tempFolloweeFollowers = new LinkedHashMap<String,List<String>>();
-			tempFolloweeFollowers.putAll(followeeFollowers);
-			
-			if (numTestUsers < 1)
-			{
-				numTestUsers = 1;
-				numTrainUsers = numUsers - numTestUsers;
-			}
-				
-			
-			int nodeNumInt = Integer.parseInt(nodeNumber);
-			// if (nodeNumInt % 2 == 0)
-			// {
-				//loop through each followee for 1 follower at a time until numTestUsers is reached
-				while (currTestUsers < numTestUsers)
-				{
-					for (String followeeName: tempFolloweeFollowers.keySet())
-					{
-						currFollowers = tempFolloweeFollowers.get(followeeName);
-						// if a followee set runs out of followers before another
-						if (currFollowers.size() > 0)
-						{
-							Collections.shuffle(currFollowers);
-							System.out.println(getLocalName()+" test shuffledList: "+currFollowers);
-							testSetUsers.add(currFollowers.remove(0));
-							currTestUsers++;
-						}
-						
-						tempFolloweeFollowers.put(followeeName,currFollowers);
-						
-						if (currTestUsers == numTestUsers)
-							break;
-					}
-				}
-				//loop through each followee for 1 follower at a time until numTrainUsers is reached
-				while (currTrainUsers < numTrainUsers)
-				{
-					for (String followeeName: tempFolloweeFollowers.keySet())
-					{
-						currFollowers = tempFolloweeFollowers.get(followeeName);
-						
-						//if a followee set runs out of followers before another
-						if (currFollowers.size() > 0)
-						{
-							Collections.shuffle(currFollowers);
-							System.out.println(getLocalName()+" training shuffledList: "+currFollowers);
-							trainSetUsers.add(currFollowers.remove(0));
-							currTrainUsers++;
-						}
-						
-						tempFolloweeFollowers.put(followeeName,currFollowers);
-						
-						if (currTrainUsers == numTrainUsers)
-							break;
-					}
-				}
-			// }
-			// else
-			// {
-				// loop through each followee for 1 follower at a time until numTrainUsers is reached
-				// while (currTrainUsers < numTrainUsers)
-				// {
-					// for (String followeeName: tempFolloweeFollowers.keySet())
-					// {
-						// currFollowers = tempFolloweeFollowers.get(followeeName);
-						
-						// /*if a followee set runs out of followers before another*/
-						// if (currFollowers.size() > 0)
-						// {
-							// Collections.shuffle(currFollowers);
-							// System.out.println(getLocalName()+" training shuffledList: "+currFollowers);
-							// trainSetUsers.add(currFollowers.remove(0));
-							// currTrainUsers++;
-						// }
-						
-						// tempFolloweeFollowers.put(followeeName,currFollowers);
-						
-						// if (currTrainUsers == numTrainUsers)
-							// break;
-					// }
-				// }
-				// loop through each followee for 1 follower at a time until numTestUsers is reached
-				// while (currTestUsers < numTestUsers)
-				// {
-					// for (String followeeName: tempFolloweeFollowers.keySet())
-					// {
-						// currFollowers = tempFolloweeFollowers.get(followeeName);
-						// /*if a followee set runs out of followers before another*/
-						// if (currFollowers.size() > 0)
-						// {
-							// Collections.shuffle(currFollowers);
-							// System.out.println(getLocalName()+" test shuffledList: "+currFollowers);
-							// testSetUsers.add(currFollowers.remove(0));
-							// currTestUsers++;
-						// }
-						
-						// tempFolloweeFollowers.put(followeeName,currFollowers);
-						
-						// if (currTestUsers == numTestUsers)
-							// break;
-					// }
-				// }
-
-			// }		
-			
+			System.out.println(getLocalName()+" classifier input users: "+numUsers);
+			SvmDataSplit split = determineSvmDataSplit(followeeFollowers);
+			trainSetUsers = split.trainUsers;
+			testSetUsers = split.testUsers;
+			String splitLabel = algorithmRec == SVM ? "SVM split" : "Classifier split";
+			logSvmSplitSummary(splitLabel, trainSetUsers, testSetUsers);
 		}
 		
 		private double[] vectorArrayFormat(Map<String,Double> currDocTfidf, TreeSet<String> uniqueDocTerms)
@@ -6194,9 +5587,9 @@ public class RecommenderAgent extends Agent
 		}
 		
 		
-		private StringJoiner vectorArffFormat(Map<String,Double> currDocTfidf, TreeSet<String> uniqueDocTerms)
-		{
-			StringJoiner tfidfJoinerTemp = new StringJoiner(",");
+			private StringJoiner vectorArffFormat(Map<String,Double> currDocTfidf, TreeSet<String> uniqueDocTerms)
+			{
+				StringJoiner tfidfJoinerTemp = new StringJoiner(",");
 			double currTfidf;
 			
 			// int uniqueWordCount = 0;
@@ -6211,9 +5604,728 @@ public class RecommenderAgent extends Agent
 				
 				tfidfJoinerTemp.add(String.valueOf(currTfidf));
 			}
-			return tfidfJoinerTemp;
+				return tfidfJoinerTemp;
+			}
+
+			private void configureSvmModel(SMO svmModel)
+			{
+				svmModel.setC(0.1);
+				svmModel.setBuildCalibrationModels(true);
+				SvmReproducibility.applyModelSeed(svmModel);
+			}
+
+			private double[] getSvmClassDistribution(SMO svmModel, Instances instances, int instanceIndex)
+			{
+				try
+				{
+					return svmModel.distributionForInstance(instances.instance(instanceIndex));
+				}
+				catch (Exception e)
+				{
+					e.printStackTrace();
+					return null;
+				}
+			}
+
+			private TreeMap<String,Double> buildFolloweeScoreMapFromDistribution(Instances instances, double[] distribution, String fallbackFollowee)
+			{
+				TreeMap<String,Double> userScore = new TreeMap<String,Double>();
+				for (String followeeUser : followeeFollowers.keySet())
+				{
+					userScore.put(followeeUser, 0.0);
+				}
+
+				if (distribution != null)
+				{
+					for (int i = 0; i < distribution.length; i++)
+					{
+						String className = instances.classAttribute().value(i);
+						if (userScore.containsKey(className))
+						{
+							double score = distribution[i];
+							if (Double.isNaN(score) || Double.isInfinite(score))
+							{
+								score = 0.0;
+							}
+							userScore.put(className, score);
+						}
+					}
+				}
+
+				boolean hasPositiveScore = false;
+				for (Double score : userScore.values())
+				{
+					if (score != null && score > 0.0)
+					{
+						hasPositiveScore = true;
+						break;
+					}
+				}
+				if (!hasPositiveScore && fallbackFollowee != null && userScore.containsKey(fallbackFollowee))
+				{
+					userScore.put(fallbackFollowee, 1.0);
+				}
+
+				return userScore;
+			}
+
+			private boolean isSvmBatchMode()
+			{
+				return algorithmRec == SVM && usersRec != null && usersRec.size() > 1;
+			}
+
+			private TreeMap<String,TreeMap<String,Double>> runIndependentSvmBatchRecommendations()
+			{
+				TreeMap<String,TreeMap<String,Double>> batchScores = new TreeMap<String,TreeMap<String,Double>>();
+				ArrayList<String> assignedUsers = getAssignedSvmBatchUsers();
+				System.out.println(getLocalName()+" SVM batch assigned users: "+assignedUsers);
+				System.out.println(getLocalName()+" SVM reproducibility split seed: "
+						+ SvmReproducibility.SPLIT_SEED + " model seed: " + SvmReproducibility.MODEL_SEED);
+				for (String recUser : assignedUsers)
+				{
+					TreeMap<String,Double> userScores = runIndependentSvmForUser(recUser);
+					if (userScores == null)
+					{
+						System.out.println(getLocalName()+" SVM batch could not produce a prediction for "+recUser+". Writing zero scores so querying can continue.");
+						batchScores.put(recUser, buildFolloweeScoreMap(null));
+					}
+					else
+					{
+						batchScores.put(recUser, userScores);
+					}
+				}
+				return batchScores;
+			}
+
+			private ArrayList<String> getAssignedSvmBatchUsers()
+			{
+				ArrayList<String> assignedUsers = new ArrayList<String>();
+				if (usersRec == null || usersRec.size() == 0)
+				{
+					return assignedUsers;
+				}
+
+				assignedUsers.addAll(usersRec);
+				return assignedUsers;
+			}
+
+			private TreeMap<String,Double> runIndependentSvmForUser(String recUser)
+			{
+				if (recUser == null || !allUserDocuments.containsKey(recUser))
+				{
+					return null;
+				}
+
+				LinkedHashMap<String,LinkedHashMap<String,Double>> documentsForTarget = buildSvmDocumentsForTarget(recUser);
+				if (!documentsForTarget.containsKey(recUser))
+				{
+					return null;
+				}
+
+				TreeSet<String> targetTerms = buildUniqueTermsForDocuments(documentsForTarget);
+				LinkedHashMap<String,Integer> targetDocFreq = buildDocumentFrequencyForDocuments(documentsForTarget);
+				LinkedHashMap<String,LinkedHashMap<String,Double>> targetTfidf = calculateTfidfForDocuments(documentsForTarget, targetDocFreq);
+				Map<String,List<String>> targetFolloweeFollowers = buildFolloweeFollowersForDocuments(documentsForTarget);
+				SvmDataSplit split = determineSvmDataSplit(targetFolloweeFollowers);
+
+				String arffDirName = "Dataset/Arff_files/";
+				File arffDir = new File(arffDirName);
+				if (!arffDir.exists())
+				{
+					arffDir.mkdirs();
+				}
+
+				String safeUser = sanitizeFileName(recUser);
+				String trainPath = arffDirName + "svm_batch_train_rec" + nodeNumber + "_" + safeUser + ".txt";
+				String testPath = arffDirName + "svm_batch_test_rec" + nodeNumber + "_" + safeUser + ".txt";
+				String recommendPath = arffDirName + "svm_batch_recommend_rec" + nodeNumber + "_" + safeUser + ".txt";
+
+				try
+				{
+					writeSvmBatchArffFiles(trainPath, testPath, recommendPath, targetTfidf, targetTerms, split, recUser);
+				}
+				catch (IOException e)
+				{
+					e.printStackTrace();
+					return null;
+				}
+
+				return trainAndPredictSvmForBatchUser(trainPath, testPath, recommendPath, recUser);
+			}
+
+			private LinkedHashMap<String,LinkedHashMap<String,Double>> buildSvmDocumentsForTarget(String targetUser)
+			{
+				LinkedHashMap<String,LinkedHashMap<String,Double>> documentsForTarget = new LinkedHashMap<String,LinkedHashMap<String,Double>>();
+				for (Map.Entry<String,LinkedHashMap<String,Double>> entry : allUserDocuments.entrySet())
+				{
+					String userName = entry.getKey();
+					if (usersRec.contains(userName) && !userName.equals(targetUser))
+					{
+						Integer primaryRecServer = userPrimaryRecServer.get(userName);
+						if (primaryRecServer == null || !String.valueOf(primaryRecServer).equals(nodeNumber))
+						{
+							continue;
+						}
+					}
+					documentsForTarget.put(userName, entry.getValue());
+				}
+				return documentsForTarget;
+			}
+
+			private TreeSet<String> buildUniqueTermsForDocuments(LinkedHashMap<String,LinkedHashMap<String,Double>> documents)
+			{
+				TreeSet<String> uniqueTerms = new TreeSet<String>();
+				for (LinkedHashMap<String,Double> document : documents.values())
+				{
+					uniqueTerms.addAll(document.keySet());
+				}
+				return uniqueTerms;
+			}
+
+			private LinkedHashMap<String,Integer> buildDocumentFrequencyForDocuments(LinkedHashMap<String,LinkedHashMap<String,Double>> documents)
+			{
+				LinkedHashMap<String,Integer> docFreq = new LinkedHashMap<String,Integer>();
+				for (LinkedHashMap<String,Double> document : documents.values())
+				{
+					for (String term : document.keySet())
+					{
+						Integer currentCount = docFreq.get(term);
+						if (currentCount == null)
+						{
+							currentCount = 0;
+						}
+						docFreq.put(term, currentCount + 1);
+					}
+				}
+				return docFreq;
+			}
+
+			private LinkedHashMap<String,LinkedHashMap<String,Double>> calculateTfidfForDocuments(LinkedHashMap<String,LinkedHashMap<String,Double>> documents, LinkedHashMap<String,Integer> docFreq)
+			{
+				LinkedHashMap<String,LinkedHashMap<String,Double>> tfidfDocuments = new LinkedHashMap<String,LinkedHashMap<String,Double>>();
+				int targetTotalDocuments = documents.size();
+				for (Map.Entry<String,LinkedHashMap<String,Double>> entry : documents.entrySet())
+				{
+					String userName = entry.getKey();
+					LinkedHashMap<String,Double> userDoc = entry.getValue();
+					LinkedHashMap<String,Double> userDocumentTFIDF = new LinkedHashMap<String,Double>();
+					double vectorMagnitude = 0.0;
+					for (String docTerm : userDoc.keySet())
+					{
+						double tf = userDoc.get(docTerm);
+						Integer dfValue = docFreq.get(docTerm);
+						double df = dfValue == null ? 0.0 : dfValue.doubleValue();
+						double tfidf = 0.0;
+						if (df > 0.0)
+						{
+							double idf = (double)Math.log10(targetTotalDocuments/df) / Math.log10(2);
+							tfidf = tf * idf;
+						}
+						if (Double.isNaN(tfidf))
+						{
+							tfidf = 0.0;
+						}
+						userDocumentTFIDF.put(docTerm, tfidf);
+						vectorMagnitude += tfidf * tfidf;
+					}
+
+					vectorMagnitude = Math.sqrt(vectorMagnitude);
+					for (String docTerm : userDoc.keySet())
+					{
+						double tfidf = userDocumentTFIDF.get(docTerm);
+						if (vectorMagnitude > 0.0)
+						{
+							tfidf = tfidf / vectorMagnitude;
+						}
+						else
+						{
+							tfidf = 0.0;
+						}
+						if (Double.isNaN(tfidf))
+						{
+							tfidf = 0.0;
+						}
+						userDocumentTFIDF.put(docTerm, tfidf);
+					}
+					tfidfDocuments.put(userName, userDocumentTFIDF);
+				}
+				return tfidfDocuments;
+			}
+
+			private Map<String,List<String>> buildFolloweeFollowersForDocuments(LinkedHashMap<String,LinkedHashMap<String,Double>> documents)
+			{
+				Map<String,List<String>> targetFolloweeFollowers = new LinkedHashMap<String,List<String>>();
+				for (String userName : documents.keySet())
+				{
+					String followeeName = userFollowee.get(userName);
+					if (followeeName == null)
+					{
+						continue;
+					}
+					List<String> followers = targetFolloweeFollowers.get(followeeName);
+					if (followers == null)
+					{
+						followers = new ArrayList<String>();
+						targetFolloweeFollowers.put(followeeName, followers);
+					}
+					followers.add(userName);
+				}
+				return targetFolloweeFollowers;
+			}
+
+			private SvmDataSplit determineSvmDataSplit(Map<String,List<String>> targetFolloweeFollowers)
+			{
+				SvmReproducibility.Split split = SvmReproducibility.stratifiedSplit(
+						targetFolloweeFollowers, TEST_SET_PERCENT);
+				return new SvmDataSplit(split.getTrainUsers(), split.getTestUsers());
+			}
+
+			private void logSvmSplitSummary(String label, List<String> trainUsers, List<String> testUsers)
+			{
+				System.out.println(getLocalName()+" "+label+" reproducibility split seed: "
+						+ SvmReproducibility.SPLIT_SEED + " model seed: " + SvmReproducibility.MODEL_SEED);
+				System.out.println(getLocalName()+" "+label+" train users: "+trainUsers.size()+" test users: "+testUsers.size());
+				System.out.println(getLocalName()+" "+label+" train class counts: "+countUsersByFollowee(trainUsers));
+				System.out.println(getLocalName()+" "+label+" test class counts: "+countUsersByFollowee(testUsers));
+			}
+
+			private Map<String,Integer> countUsersByFollowee(List<String> users)
+			{
+				Map<String,Integer> counts = new LinkedHashMap<String,Integer>();
+				for (String user : users)
+				{
+					String followeeName = userFollowee.get(user);
+					if (followeeName == null)
+					{
+						followeeName = "UNKNOWN";
+					}
+					Integer count = counts.get(followeeName);
+					if (count == null)
+					{
+						count = 0;
+					}
+					counts.put(followeeName, count + 1);
+				}
+				return counts;
+			}
+
+			private void writeSvmBatchArffFiles(String trainPath, String testPath, String recommendPath, LinkedHashMap<String,LinkedHashMap<String,Double>> tfidfDocuments, TreeSet<String> uniqueTerms, SvmDataSplit split, String recUser) throws IOException
+			{
+				writeSvmBatchArffFile(trainPath, "trainingSet", split.trainUsers, tfidfDocuments, uniqueTerms);
+				writeSvmBatchArffFile(testPath, "testSet", split.testUsers, tfidfDocuments, uniqueTerms);
+				ArrayList<String> recommendUsers = new ArrayList<String>();
+				recommendUsers.add(recUser);
+				writeSvmBatchArffFile(recommendPath, "recommendSet", recommendUsers, tfidfDocuments, uniqueTerms);
+			}
+
+			private void writeSvmBatchArffFile(String filePath, String relationName, List<String> rowUsers, LinkedHashMap<String,LinkedHashMap<String,Double>> tfidfDocuments, TreeSet<String> uniqueTerms) throws IOException
+			{
+				BufferedWriter writer = new BufferedWriter(new FileWriter(filePath, false));
+				writer.write("@relation " + relationName);
+				writer.newLine();
+				writer.newLine();
+				int uniqueWordCount = 0;
+				for (String uniqueWord : uniqueTerms)
+				{
+					writer.write("@attribute word"+ uniqueWordCount +" numeric");
+					writer.newLine();
+					uniqueWordCount++;
+				}
+				writer.write(buildArffClassAttribute(followeeFollowers.keySet()));
+				writer.newLine();
+				writer.newLine();
+				writer.newLine();
+				writer.write("@data");
+				writer.newLine();
+				for (String currUser : rowUsers)
+				{
+					Map<String,Double> currDocTfidf = tfidfDocuments.get(currUser);
+					if (currDocTfidf == null)
+					{
+						continue;
+					}
+					StringJoiner tfidfJoiner = vectorArffFormat(currDocTfidf, uniqueTerms);
+					writer.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
+					writer.newLine();
+				}
+				writer.close();
+			}
+
+			private TreeMap<String,Double> trainAndPredictSvmForBatchUser(String trainPath, String testPath, String recommendPath, String recUser)
+			{
+				try
+				{
+					BufferedReader datafile = readDataFile(trainPath);
+					Instances data = new Instances(datafile);
+					data.setClassIndex(data.numAttributes() - 1);
+					if (data.numInstances() == 0)
+					{
+						return null;
+					}
+
+					SMO svmModel = new SMO();
+					configureSvmModel(svmModel);
+					svmModel.buildClassifier(data);
+
+					BufferedReader testfile = readDataFile(testPath);
+					Instances test = new Instances(testfile);
+					test.setClassIndex(test.numAttributes() - 1);
+					if (test.numInstances() > 0)
+					{
+						Evaluation eval = new Evaluation(data);
+						eval.evaluateModel(svmModel, test);
+						System.out.println(getLocalName()+" SVM batch accuracy for "+recUser+": "+String.format("%.2f%%", eval.pctCorrect()));
+					}
+
+					BufferedReader recommendFile = readDataFile(recommendPath);
+					Instances recommendInstances = new Instances(recommendFile);
+					recommendInstances.setClassIndex(recommendInstances.numAttributes() - 1);
+					if (recommendInstances.numInstances() == 0)
+					{
+						return null;
+					}
+
+					double clsLabel = svmModel.classifyInstance(recommendInstances.instance(0));
+					String predictedFollowee = recommendInstances.classAttribute().value((int) clsLabel);
+					double[] classDistribution = getSvmClassDistribution(svmModel, recommendInstances, 0);
+					TreeMap<String,Double> userScores = buildFolloweeScoreMapFromDistribution(recommendInstances, classDistribution, predictedFollowee);
+					System.out.println(getLocalName()+" SVM batch predicted "+recUser+" -> "+predictedFollowee+" scores: "+userScores);
+					return userScores;
+				}
+				catch (Exception e)
+				{
+					e.printStackTrace();
+					return null;
+				}
+			}
+
+			private TreeMap<String,Double> buildFolloweeScoreMap(String predictedFollowee)
+			{
+				TreeMap<String,Double> userScore = new TreeMap<String,Double>();
+				for (String followeeUser : followeeFollowers.keySet())
+				{
+					double followeeScore = 0.0;
+					if (predictedFollowee != null && predictedFollowee.equals(followeeUser))
+					{
+						followeeScore = 1.0;
+					}
+					userScore.put(followeeUser, followeeScore);
+				}
+				return userScore;
+			}
+
+			private String sanitizeFileName(String value)
+			{
+				if (value == null)
+				{
+					return "unknown";
+				}
+				String safeValue = value.replaceAll("[^A-Za-z0-9._-]", "_");
+				if (safeValue.length() == 0)
+				{
+					return "unknown";
+				}
+				return safeValue;
+			}
+
+			private static class SvmDataSplit
+			{
+				private final ArrayList<String> trainUsers;
+				private final ArrayList<String> testUsers;
+
+				private SvmDataSplit(ArrayList<String> trainUsers, ArrayList<String> testUsers)
+				{
+					this.trainUsers = trainUsers;
+					this.testUsers = testUsers;
+				}
+			}
+	
+			private ArrayList<String> tokenizeProcessedTweet(String tweetText)
+			{
+			String currentText = tweetText == null ? "" : tweetText;
+
+			if (currentText.contains("Photo:"))
+				currentText = currentText.substring(0,currentText.indexOf("Photo:"));
+
+			if (currentText.contains("Photoset:"))
+				currentText = currentText.substring(0,currentText.indexOf("Photoset:"));
+
+			if (currentText.contains("RT @") && retweetedby_temp == RE_TWEETS)
+				currentText="";
+			else
+				currentText = RETWEET_PATTERN.matcher(currentText).replaceAll("RT ");
+
+			currentText = PUNCTUATION_PATTERN.matcher(currentText).replaceAll("");
+			currentText = LINK_PATTERN.matcher(currentText).replaceAll(" ");
+
+			if (hashtags_temp == HASH_TAGS)
+				currentText = SPECIAL_CHARACTER_PATTERN.matcher(currentText).replaceAll(" ");
+
+			currentText = currentText.toLowerCase();
+
+			if (stopWordFlag_temp == STOP_WORDS)
+				currentText = removeStopWords(currentText);
+
+			currentText = currentText.trim();
+			currentText = NON_ALPHA_PATTERN.matcher(currentText).replaceAll("");
+			currentText = MULTI_SPACE_PATTERN.matcher(currentText).replaceAll(" ");
+			currentText = currentText.trim();
+
+			if (currentText.length() == 0)
+				return new ArrayList<String>();
+
+			ArrayList<String> tokens = new ArrayList<String>();
+			int start = 0;
+			while (start < currentText.length())
+			{
+				int spaceIndex = currentText.indexOf(' ', start);
+				if (spaceIndex < 0)
+				{
+					tokens.add(currentText.substring(start));
+					break;
+				}
+				if (spaceIndex > start)
+				{
+					tokens.add(currentText.substring(start, spaceIndex));
+				}
+				start = spaceIndex + 1;
+			}
+			return tokens;
+		}
+
+		private String removeStopWords(String currentText)
+		{
+			String paddedText = " " + currentText + " ";
+			for (String stopWord : stopWordsArray)
+			{
+				String stopWordPattern = " " + stopWord + " ";
+				if (paddedText.contains(stopWordPattern))
+				{
+					paddedText = paddedText.replace(stopWordPattern, " ");
+				}
+			}
+			return paddedText;
+		}
+
+		private void writeDoc2VecUserDocumentFile()
+		{
+			BufferedWriter bf = null;
+			String doc2vecDirName = "Dataset/424k/";
+			File doc2vecDir = new File(doc2vecDirName);
+			if (!doc2vecDir.exists())
+			{
+				doc2vecDir.mkdirs();
+			}
+
+			try
+			{
+				bf = new BufferedWriter(new FileWriter(doc2vecDirName+ "userdoc.txt"));
+				for (Map.Entry<String,LinkedHashMap<String,Double>> entry : allUserDocuments.entrySet())
+				{
+					LinkedHashMap<String,Double> entry2 = entry.getValue();
+					for (Map.Entry<String,Double> entry3 : entry2.entrySet())
+					{
+						bf.write(entry3.getKey()+ " ");
+					}
+					bf.write(entry.getKey());
+					bf.newLine();
+				}
+				bf.flush();
+			}
+			catch (IOException e)
+			{
+				System.out.println("An error occurred.");
+				e.printStackTrace();
+			}
+			finally
+			{
+				if (bf != null)
+				{
+					try
+					{
+						bf.close();
+					}
+					catch (Exception e)
+					{
+					}
+				}
+			}
 		}
 		
+		private boolean recordTweetBatchFromUserAgent(ACLMessage msg)
+		{
+			Object batchObject;
+			try
+			{
+				batchObject = msg.getContentObject();
+			}
+			catch (UnreadableException e)
+			{
+				e.printStackTrace();
+				return false;
+			}
+			
+			if (!(batchObject instanceof List<?>))
+			{
+				System.out.println(getLocalName()+" received invalid tweet batch payload from "+msg.getSender().getLocalName());
+				return false;
+			}
+			
+				boolean recordedAnyTweet = false;
+				int primaryRecServer = -1;
+				for (Object tweetObject : (List<?>) batchObject)
+				{
+					if (tweetObject instanceof String)
+					{
+						String tweetMessage = (String) tweetObject;
+						if (tweetMessage.startsWith(TWEET_BATCH_PRIMARY_REC_SERVER_PREFIX))
+						{
+							try
+							{
+								primaryRecServer = Integer.parseInt(tweetMessage.substring(TWEET_BATCH_PRIMARY_REC_SERVER_PREFIX.length()).trim());
+							}
+							catch (NumberFormatException e)
+							{
+								primaryRecServer = -1;
+							}
+							continue;
+						}
+						recordedAnyTweet = recordTweetFromUserAgent(tweetMessage, primaryRecServer) || recordedAnyTweet;
+					}
+				}
+			
+			return recordedAnyTweet;
+		}
+		
+			private boolean recordTweetFromUserAgent(String tweetReceived)
+			{
+				return recordTweetFromUserAgent(tweetReceived, -1);
+			}
+
+			private boolean recordTweetFromUserAgent(String tweetReceived, int primaryRecServer)
+			{
+				if (tweetReceived == null)
+				{
+				return false;
+			}
+			
+			String[] tweetFields = splitTweetMessage(tweetReceived);
+			if (tweetFields.length < 5)
+			{
+				System.out.println(getLocalName()+" skipped malformed tweet message: "+tweetReceived);
+				return false;
+			}
+			
+				int totalTweetFromUser;
+				long tweetIdReceived;
+				try
+				{
+					totalTweetFromUser = Integer.parseInt(tweetFields[0]);
+					tweetIdReceived = Long.valueOf(tweetFields[2]);
+				}
+				catch (NumberFormatException e)
+				{
+					System.out.println(getLocalName()+" skipped tweet message with invalid numeric fields: "+tweetReceived);
+					return false;
+				}
+				
+				String tweetUserReceived = tweetFields[1];
+				String tweetFolloweeName = tweetFields[3];
+				String tweetTextReceived = tweetFields[4];
+				
+				tweetCount++;
+				if (tweetCount == 1)
+					firstTweetTime = System.nanoTime();
+				
+				if (tweetUserReceived.equals("sageryereson"))
+					System.out.println("sageryerson: "+tweetReceived);
+				
+				if (!userFollowee.containsKey(tweetUserReceived))
+					userFollowee.put(tweetUserReceived,tweetFolloweeName);
+
+				if (primaryRecServer > 0 && !userPrimaryRecServer.containsKey(tweetUserReceived))
+				{
+					userPrimaryRecServer.put(tweetUserReceived, primaryRecServer);
+				}
+				
+				totalMessageBytes += tweetReceived.length() * 2;
+				
+				if (usersRec.contains(tweetUserReceived))
+				{
+					int userIndex = usersRec.indexOf(tweetUserReceived);
+					usersRecTweetCountsReceived[userIndex]++;
+					
+					if (usersRecTweetCountsReceived[userIndex] == totalTweetFromUser)
+					{
+						ACLMessage msgLastTweetFromRecUser = new ACLMessage( ACLMessage.INFORM );
+						msgLastTweetFromRecUser.addReceiver( new AID(tweetUserReceived+"-UserAgent", AID.ISLOCALNAME) );
+						msgLastTweetFromRecUser.setPerformative( ACLMessage.INFORM );
+						msgLastTweetFromRecUser.setContent("Received Last Tweet");
+						msgLastTweetFromRecUser.setOntology("Last Tweet Received From Rec Agent");
+						send(msgLastTweetFromRecUser);
+					}
+				}
+				
+				if (!userRegisteredInRecAgent.contains(tweetUserReceived))
+				{
+					userRegisteredInRecAgent.add(tweetUserReceived);
+				}
+				
+				tweetIdText.put(tweetIdReceived, tweetTextReceived);
+				tweetIdUser.put(tweetIdReceived, tweetUserReceived);
+				return true;
+		}
+
+		private String[] splitTweetMessage(String tweetReceived)
+		{
+			int firstTab = tweetReceived.indexOf('\t');
+			if (firstTab >= 0)
+			{
+				int secondTab = tweetReceived.indexOf('\t', firstTab + 1);
+				int thirdTab = secondTab >= 0 ? tweetReceived.indexOf('\t', secondTab + 1) : -1;
+				int fourthTab = thirdTab >= 0 ? tweetReceived.indexOf('\t', thirdTab + 1) : -1;
+				if (secondTab >= 0 && thirdTab >= 0 && fourthTab >= 0)
+				{
+					return new String[] {
+						tweetReceived.substring(0, firstTab),
+						tweetReceived.substring(firstTab + 1, secondTab),
+						tweetReceived.substring(secondTab + 1, thirdTab),
+						tweetReceived.substring(thirdTab + 1, fourthTab),
+						tweetReceived.substring(fourthTab + 1)
+					};
+				}
+			}
+			return tweetReceived.split(" ", 5);
+		}
+	
+		private String buildArffClassAttribute(Set<String> classNames)
+		{
+			StringJoiner classJoiner = new StringJoiner(",","{","}");
+			Collection<String> orderedClassNames = classNames;
+			if (algorithmRec == SVM)
+			{
+				orderedClassNames = SvmReproducibility.sortedNonNullValues(classNames);
+			}
+			for (String className: orderedClassNames)
+			{
+				classJoiner.add(formatArffClassValue(className));
+			}
+			return "@attribute result " + classJoiner.toString();
+		}
+
+		private String formatArffClassValue(String className)
+		{
+			if (className == null)
+			{
+				return "?";
+			}
+			return "'" + className
+					.replace("\\", "\\\\")
+					.replace("'", "\\'")
+					.replace("\r", " ")
+					.replace("\n", " ") + "'";
+		}
+
 		private void testNeuralNetwork(NeuralNetwork nnet, DataSet testSet) {
 
 			List<DataSetRow> testSetRows = testSet.getRows();
@@ -6349,7 +6461,94 @@ public class RecommenderAgent extends Agent
 		
 		// End of code added by Sepide 
 		
-		private void recNeuralNetwork(NeuralNetwork nnet, DataSet recSet) {
+			private void writeDoc2VecCompatibilityPartFiles(File selectedDatasetFile, String doc2vecDirName, int numFiles, String specificUser) throws IOException
+			{
+				if (selectedDatasetFile == null)
+				{
+					throw new IOException("No selected dataset file is available for Doc2Vec splitting.");
+				}
+				if (numFiles < 1)
+				{
+					numFiles = 1;
+				}
+
+				List<BufferedWriter> writers = new ArrayList<BufferedWriter>();
+				long rowsWritten = 0;
+				long skippedRows = 0;
+				int fileIndex = 0;
+
+				try
+				{
+					for (int i = 0; i < numFiles; i++)
+					{
+						writers.add(new BufferedWriter(new FileWriter(doc2vecDirName + "part" + (i + 1) + "_" + ".txt")));
+					}
+
+					BufferedReader reader = new BufferedReader(new FileReader(selectedDatasetFile));
+					try
+					{
+						String row;
+						while ((row = reader.readLine()) != null)
+						{
+							String[] columns = row.split("\t", 6);
+							if (columns.length < 6)
+							{
+								skippedRows++;
+								continue;
+							}
+
+							String newRow = columns[5] + "\t" + columns[4];
+							if (columns[4].equals(specificUser))
+							{
+								for (BufferedWriter writer : writers)
+								{
+									writer.write(newRow);
+									writer.newLine();
+									rowsWritten++;
+								}
+							}
+							else
+							{
+								BufferedWriter writer = writers.get(fileIndex);
+								writer.write(newRow);
+								writer.newLine();
+								rowsWritten++;
+								fileIndex = (fileIndex + 1) % numFiles;
+							}
+						}
+					}
+					finally
+					{
+						reader.close();
+					}
+				}
+				finally
+				{
+					IOException closeException = null;
+					for (BufferedWriter writer : writers)
+					{
+						try
+						{
+							writer.close();
+						}
+						catch (IOException e)
+						{
+							if (closeException == null)
+							{
+								closeException = e;
+							}
+						}
+					}
+					if (closeException != null)
+					{
+						throw closeException;
+					}
+				}
+
+				System.out.println(getLocalName()+" Doc2Vec compatibility split complete rowsWritten="+rowsWritten+" skippedRows="+skippedRows+" files="+numFiles);
+			}
+			
+			private void recNeuralNetwork(NeuralNetwork nnet, DataSet recSet) {
 
 			List<DataSetRow> recSetRows = recSet.getRows();
 			System.out.println(getLocalName()+" followeeNames: "+Arrays.toString(followeeNames));
@@ -6384,6 +6583,85 @@ public class RecommenderAgent extends Agent
 				
 			}
 
+		}
+
+		private double calculateSparseCosineScore(LinkedHashMap<String,Double> doc1, LinkedHashMap<String,Double> doc2)
+		{
+			if (doc1 == null || doc2 == null || doc1.isEmpty() || doc2.isEmpty())
+			{
+				return 0.0;
+			}
+
+			Map<String,Double> smallerDoc = doc1;
+			Map<String,Double> largerDoc = doc2;
+			if (doc2.size() < doc1.size())
+			{
+				smallerDoc = doc2;
+				largerDoc = doc1;
+			}
+
+			double dotProduct = 0.0;
+			for (Map.Entry<String,Double> entry : smallerDoc.entrySet())
+			{
+				Double largerValue = largerDoc.get(entry.getKey());
+				if (largerValue != null)
+				{
+					dotProduct += entry.getValue() * largerValue;
+				}
+			}
+			return dotProduct;
+		}
+
+		private TreeMap<String,Double> keepTopCosSimScores(TreeMap<String,Double> scores, int limit)
+		{
+			if (scores == null || limit <= 0 || scores.size() <= limit)
+			{
+				return scores;
+			}
+
+			ArrayList<Map.Entry<String,Double>> sortedScores = new ArrayList<Map.Entry<String,Double>>(scores.entrySet());
+			Collections.sort(sortedScores, new Comparator<Map.Entry<String,Double>>() {
+				public int compare(Map.Entry<String,Double> first, Map.Entry<String,Double> second)
+				{
+					int scoreCompare = Double.compare(second.getValue(), first.getValue());
+					if (scoreCompare != 0)
+					{
+						return scoreCompare;
+					}
+					return first.getKey().compareTo(second.getKey());
+				}
+			});
+
+			TreeMap<String,Double> limitedScores = new TreeMap<String,Double>();
+			for (int i = 0; i < sortedScores.size() && i < limit; i++)
+			{
+				Map.Entry<String,Double> entry = sortedScores.get(i);
+				limitedScores.put(entry.getKey(), entry.getValue());
+			}
+			return limitedScores;
+		}
+
+		private int getCosSimLocalResultLimit()
+		{
+			int requestedRecommendations = 0;
+			if (myGui != null && myGui.recommendationField != null)
+			{
+				try
+				{
+					requestedRecommendations = Integer.parseInt(myGui.recommendationField.getText().trim());
+				}
+				catch (Exception e)
+				{
+					requestedRecommendations = 0;
+				}
+			}
+
+			int bufferedLimit = requestedRecommendations * COS_SIM_LOCAL_TOP_MULTIPLIER;
+			if (bufferedLimit < COS_SIM_LOCAL_TOP_MIN_RESULTS)
+			{
+				bufferedLimit = COS_SIM_LOCAL_TOP_MIN_RESULTS;
+			}
+			return bufferedLimit;
 		}
 		
 		private int findMaxIndex(double[] array)

@@ -84,6 +84,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	private JLabel beginDateLabel;
 	private JLabel endDateLabel;
 	private JLabel recommendationLabel;
+	private JLabel svmBatchUsersLabel;
 	private JLabel algorithmLabel;
 	private JLabel numReducersLabel;
 	private JLabel numMappersLabel;
@@ -100,6 +101,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	private JTextField beginDateField;
 	private JTextField endDateField;
 	public JTextField recommendationField;
+	public JTextField svmBatchUsersField;
 	private JTextField numReducersField;
 	private JTextField numMappersField;
 	public JButton initializeButton;
@@ -136,6 +138,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	private JCheckBox removeHashTags;
 	private JCheckBox removeRetweets;
 	private JCheckBox removeStopWords;
+	private JCheckBox simulateTweetDelay;
 	private DefaultListModel<String> agentsList;
 	public JList showAgentsList;
 	private Border blackBorder;
@@ -406,12 +409,20 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		recommendationLabel.setHorizontalAlignment(JLabel.RIGHT);
 		recommendationLabel.setForeground(Color.WHITE);
 		recommendationLabel.setFont(new Font("Arial",Font.BOLD,12));
-		recommendationField = new JTextField(FIELD_WIDTH);
-		recommendationField.setText("3");
-		recommendationField.setHorizontalAlignment(JTextField.CENTER);
-		recommendationField.addActionListener(new RecommendationListener());
+			recommendationField = new JTextField(FIELD_WIDTH);
+			recommendationField.setText("3");
+			recommendationField.setHorizontalAlignment(JTextField.CENTER);
+			recommendationField.addActionListener(new RecommendationListener());
+			
+			svmBatchUsersLabel = new JLabel("SVM Batch Users: ");
+			svmBatchUsersLabel.setHorizontalAlignment(JLabel.RIGHT);
+			svmBatchUsersLabel.setForeground(Color.WHITE);
+			svmBatchUsersLabel.setFont(new Font("Arial",Font.BOLD,12));
+			svmBatchUsersField = new JTextField(FIELD_WIDTH);
+			svmBatchUsersField.setText("1");
+			svmBatchUsersField.setHorizontalAlignment(JTextField.CENTER);
 
-		algorithmLabel = new JLabel("Algorithm: ");
+			algorithmLabel = new JLabel("Algorithm: ");
 		algorithmLabel.setForeground(Color.WHITE);
 		algorithmLabel.setHorizontalAlignment(JLabel.RIGHT);
 		algorithmLabel.setFont(new Font("Arial",Font.BOLD,12));
@@ -675,6 +686,12 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		removeStopWords.setFont(new Font("Arial",Font.BOLD,12));
 		removeStopWords.setSelected(true);
 		removeStopWords.addItemListener(new RemoveBoxListener());
+
+		simulateTweetDelay = new JCheckBox("Simulate Tweet Delay");
+		simulateTweetDelay.setForeground(Color.WHITE);
+		simulateTweetDelay.setFont(new Font("Arial",Font.BOLD,12));
+		simulateTweetDelay.setSelected(true);
+		simulateTweetDelay.setToolTipText("Selected: original DSMP timing simulation. Unselected: skip the artificial MobileAgent tweet-delay wait after all tweet data is delivered.");
 	}
 
 	class RemoveBoxListener implements ItemListener
@@ -1081,10 +1098,12 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		initializationsPanel.add(beginDateField);
 		initializationsPanel.add(endDateLabel);
 		initializationsPanel.add(endDateField);
-		initializationsPanel.add(recommendationLabel);
-		initializationsPanel.add(recommendationField);
-		initializationsPanel.add(algorithmLabel);
-		initializationsPanel.add(algorithmSelectionBox);
+			initializationsPanel.add(recommendationLabel);
+			initializationsPanel.add(recommendationField);
+			initializationsPanel.add(svmBatchUsersLabel);
+			initializationsPanel.add(svmBatchUsersField);
+			initializationsPanel.add(algorithmLabel);
+			initializationsPanel.add(algorithmSelectionBox);
 		initializationsPanel.add(simulationNumber);      // added by Sepide
 		initializationsPanel.add(simulationSelectionBox);        // added by Sepide
 		initializationsPanel.setBorder(initializationTitle);
@@ -1092,6 +1111,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		textProcessingPanel.add(removeHashTags);
 		textProcessingPanel.add(removeRetweets);
 		textProcessingPanel.add(removeStopWords);
+		textProcessingPanel.add(simulateTweetDelay);
 		
 		commandsPanel.add(getUsersButton);
 		commandsPanel.add(initializeButton);
@@ -1559,16 +1579,54 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		// code added by Sepide to allow selecting two users from the GUI
 		/*S agentsList.add(indexToRecommend,usersToRec);
 		agentsList.add(indexToRecommend2,usersToRec); */  // added by Sepide 
-		userToRecommend = agentsList.getElementAt(indexToRecommend);
-		//S userToRecommend2 = agentsList.getElementAt(indexToRecommend2);  // added by Sepide
-		userToRecommend = userToRecommend.split("-",2)[0];
-		//S userToRecommend2 = userToRecommend2.split("-",2)[0]; // added by Sepide
 		ArrayList<String> usersRec = new ArrayList<String>();
-		usersRec.add(userToRecommend);
+		int batchCount = getSvmBatchUserCount();
+		int startIndex = indexToRecommend;
+		if (startIndex < 0)
+		{
+			startIndex = 0;
+		}
+		for (int i = startIndex; i < agentsList.size() && usersRec.size() < batchCount; i++)
+		{
+			userToRecommend = agentsList.getElementAt(i);
+			//S userToRecommend2 = userToRecommend2.split("-",2)[0]; // added by Sepide
+			userToRecommend = userToRecommend.split("-",2)[0];
+			usersRec.add(userToRecommend);
+		}
 		//S usersRec.add(userToRecommend2);  // added by Sepide
 		System.out.println("controllerGUI usersRec: "+usersRec);
 		return usersRec;
 		
+	}
+
+	public int getSvmBatchUserCount()
+	{
+		if (algorithmSelectionBox == null || algorithmSelectionBox.getSelectedIndex() != SVM)
+		{
+			return 1;
+		}
+		if (svmBatchUsersField == null)
+		{
+			return 1;
+		}
+		try
+		{
+			int batchCount = Integer.parseInt(svmBatchUsersField.getText().trim());
+			if (batchCount < 1)
+			{
+				return 1;
+			}
+			return batchCount;
+		}
+		catch (NumberFormatException e)
+		{
+			return 1;
+		}
+	}
+
+	public boolean isSimulateTweetDelayEnabled()
+	{
+		return simulateTweetDelay == null || simulateTweetDelay.isSelected();
 	}
 
 	public void shutDown() 

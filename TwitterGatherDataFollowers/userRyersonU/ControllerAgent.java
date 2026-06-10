@@ -9,6 +9,7 @@ import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.lang.*;   //added by Sepide
 import java.util.regex.Matcher;
@@ -495,6 +496,26 @@ public class ControllerAgent extends GuiAgent {
 		
 	}
 	
+	private void logStageDuration(String label, long startTime, long endTime)
+	{
+		String line = "[StageTimer] " + label + ": " + (endTime - startTime) + " ms";
+		System.out.println(line);
+		if (myGui != null)
+		{
+			myGui.appendResult(line);
+		}
+	}
+	
+	private void logStagePoint(String label)
+	{
+		String line = "[StageTimer] " + label + " at " + LocalDateTime.now();
+		System.out.println(line);
+		if (myGui != null)
+		{
+			myGui.appendResult(line);
+		}
+	}
+	
 	public void loadUsers(GuiEvent ev)
 	{
 		boolean readyToInitialize = true;
@@ -509,10 +530,14 @@ public class ControllerAgent extends GuiAgent {
 		numFollowees = (Integer) ev.getParameter(4);
 		numFollowers = (Integer) ev.getParameter(5);
 		numTweetsGenerated = (Integer) ev.getParameter(6);
-		
+
 		myGui.disableList();
+		long resetStartTime = System.currentTimeMillis();
+		resetTextDatasetExperimentOutputs();
+		logStageDuration("GET_USERS reset old text experiment outputs", resetStartTime, System.currentTimeMillis());
 
 		long startTime = System.currentTimeMillis();
+		logStagePoint("GET_USERS started");
 
 		if (readFrom == FROM_ARTIFICIAL)
 		{
@@ -647,12 +672,18 @@ public class ControllerAgent extends GuiAgent {
 
 			if (textFile != null)
 			{
+				long readTextStartTime = System.currentTimeMillis();
 				readFromTextFile();
+				logStageDuration("GET_USERS read text dataset", readTextStartTime, System.currentTimeMillis());
 
 				ArrayList<Tweet> availableTweets;
+				long availableTweetsStartTime = System.currentTimeMillis();
 				availableTweets = getAvailableTweets();
+				logStageDuration("GET_USERS build available tweet/user list", availableTweetsStartTime, System.currentTimeMillis());
 							
+				long setAvailableStartTime = System.currentTimeMillis();
 				availableDb.setTweets(availableTweets);
+				logStageDuration("GET_USERS store available tweets in memory", setAvailableStartTime, System.currentTimeMillis());
 
 				//			for (Tweet t : datasetAvailable)
 				//			{
@@ -725,6 +756,7 @@ public class ControllerAgent extends GuiAgent {
 			myGui.changeUserListTitle(readFrom);
 			long endTime = System.currentTimeMillis();
 			System.out.println("Load time: "+(endTime-startTime)+"ms");
+			logStageDuration("GET_USERS total", startTime, endTime);
 			System.out.println("READY TO INITIALIZE MULTI-AGENT SYSTEM");
 			myGui.showMessageBox("get users");
 		}
@@ -733,8 +765,66 @@ public class ControllerAgent extends GuiAgent {
 			myGui.noFileSelected();
 			myGui.enableAllButtons();
 		}
-		
+
 	} //loadUsers
+
+	private void resetTextDatasetExperimentOutputs()
+	{
+		if (readFrom != FROM_TEXT || textFile == null)
+		{
+			return;
+		}
+
+		String importantStuffDirName = "important-stuff/";
+		File importantStuffDir = new File(importantStuffDirName);
+		if (!importantStuffDir.exists())
+		{
+			importantStuffDir.mkdirs();
+		}
+
+		String graphEdgesBaseName = getDatasetGraphBaseName(textFile.getName());
+		deleteIfExists(new File(importantStuffDir, graphEdgesBaseName + ".txt"));
+		deleteIfExists(new File(importantStuffDir, graphEdgesBaseName + ".gml"));
+		deleteIfExists(new File(importantStuffDir, "graph.gexf"));
+		deleteIfExists(new File(importantStuffDir, "layout.jpg"));
+		deleteIfExists(new File(importantStuffDir, "autolayout.pdf"));
+		deleteIfExists(new File(importantStuffDir, "partition.pdf"));
+		deleteIfExists(new File(importantStuffDir, "test-file-name.txt"));
+		deleteIfExists(new File(importantStuffDir, "outPutSepFolloweeResults.txt"));
+		deleteIfExists(new File(importantStuffDir, "outPutSepFollowee.txt"));
+		deleteIfExists(new File(importantStuffDir, "outPutSep.txt"));
+		deleteIfExists(new File(importantStuffDir, "outPutSepResult.txt"));
+		deleteIfExists(new File(importantStuffDir, "outputChoice.txt"));
+
+		deleteIfExists(new File("recommendations_lists.txt"));
+		deleteIfExists(new File("tweetCounts.txt"));
+
+		System.out.println("Started clean graph experiment for dataset: " + textFile.getName());
+	}
+
+	private void deleteIfExists(File file)
+	{
+		if (file.exists() && !file.delete())
+		{
+			System.err.println("Could not delete old experiment file: " + file.getPath());
+		}
+	}
+
+	private String getDatasetGraphBaseName(String selectedFileName)
+	{
+		String datasetName = selectedFileName;
+		int extensionIndex = datasetName.lastIndexOf('.');
+		if (extensionIndex > 0)
+		{
+			datasetName = datasetName.substring(0, extensionIndex);
+		}
+		datasetName = datasetName.replaceAll("[^A-Za-z0-9._-]", "_");
+		if (datasetName.length() == 0)
+		{
+			datasetName = "uploaded-dataset";
+		}
+		return "edges-numbers-" + datasetName;
+	}
 
 	public void startSimulation()
 	{
@@ -850,6 +940,7 @@ public class ControllerAgent extends GuiAgent {
 		createDir(directoryNameRecommendation);
 		
 		long startTime = System.currentTimeMillis();
+		logStagePoint("INITIALIZE started nodes="+numRecAgents+" algorithm="+algorithmRec+" users="+listOfUsers.size());
 		//@Jason
 		
 		if (readFrom == FROM_ARTIFICIAL)
@@ -964,7 +1055,7 @@ public class ControllerAgent extends GuiAgent {
 					
 
 
-					long userTweetDelay = calculateTweetDelay(user);
+					long userTweetDelay = getConfiguredTweetDelay(user);
 
 					
 //					userFollowTweetCounts = new LinkedHashMap<String,Integer>();
@@ -1208,7 +1299,7 @@ public class ControllerAgent extends GuiAgent {
 						recServers.add(smallestBinIndex);
 					}
 
-					long userTweetDelay = calculateTweetDelay(user);
+					long userTweetDelay = getConfiguredTweetDelay(user);
 
 					
 //					userFollowTweetCounts = new LinkedHashMap<String,Integer>();
@@ -1347,19 +1438,26 @@ public class ControllerAgent extends GuiAgent {
 		///*IMPORTANT CODE FOR READING FROM TEXT FILE*/
 		if (readFrom == FROM_TEXT)
 		{
+			long textInitializeStartTime = System.currentTimeMillis();
 			localDb.clearDb();
 			availableDb.clearDb();
 			allUserFollowTweetCounts.clear();
 			
+			long readTextStartTime = System.currentTimeMillis();
 			readFromTextFile();
+			logStageDuration("INITIALIZE read text dataset", readTextStartTime, System.currentTimeMillis());
 
 			ArrayList<Tweet> availableTweets;
 			Classifier trainedSVM = null; //SVM to train
 			
+			long availableTweetsStartTime = System.currentTimeMillis();
 			availableTweets = getAvailableTweets();
 			myGui.updateList(listOfUsers);
+			logStageDuration("INITIALIZE build available tweet/user list", availableTweetsStartTime, System.currentTimeMillis());
 			
+			long followeesStartTime = System.currentTimeMillis();
 			datasetFollowees = findListFollowees();
+			logStageDuration("INITIALIZE find dataset followees", followeesStartTime, System.currentTimeMillis());
 			
 			//Distributed classifiers
 			// if (algorithmRec == MLP && numRecAgents > 1)
@@ -1368,8 +1466,10 @@ public class ControllerAgent extends GuiAgent {
 			// }
 			if (algorithmRec == MLP)
 			{
+				long mlpPrepStartTime = System.currentTimeMillis();
 				processTweets(retweetedby_temp,hashtags_temp,stopWordFlag_temp);
 				determineTrainingTestSet();
+				logStageDuration("INITIALIZE MLP central text/training-test preparation", mlpPrepStartTime, System.currentTimeMillis());
 			}
 			
 			// if (algorithmRec == SVM && numRecAgents > 1)
@@ -1390,12 +1490,14 @@ public class ControllerAgent extends GuiAgent {
 				// availableTweets = getDistributedTestSet();
 			// }
 			
+			long setAvailableStartTime = System.currentTimeMillis();
 			availableDb.setTweets(availableTweets);		
-
+			logStageDuration("INITIALIZE store available tweets in memory", setAvailableStartTime, System.currentTimeMillis());
 			
 			System.out.println("controller availableDb.getTweetsSize(): "+ availableDb.getTotalTweets());
 			//Making agents
 			try{
+				long textAgentCreationStartTime = System.currentTimeMillis();
 
 				//@Jason added algorithmRec arg
 				//Object[] orgAgentArgs = new Object[16];
@@ -1423,6 +1525,7 @@ public class ControllerAgent extends GuiAgent {
 
 				orgAgentArgs[18] = myGui;
 
+				long organizingAgentStartTime = System.currentTimeMillis();
 				for(int i=1; i<numOrgAgents+1; i++)
 				{
 					String orgAgentName = "Organizing Agent" + i;
@@ -1433,6 +1536,7 @@ public class ControllerAgent extends GuiAgent {
 					System.out.println("Made agent: "+orgAgentName);
 
 				}
+				logStageDuration("INITIALIZE create organizing agents", organizingAgentStartTime, System.currentTimeMillis());
 
 
 				//Create bins for recommender agents
@@ -1442,72 +1546,36 @@ public class ControllerAgent extends GuiAgent {
 //					bins.add(0);
 //				}
 				
-				int[] bins = new int[numRecAgents]; //bins for recommender agents
-
-				int currentTweetCount;
-				int totalRecBin = 0; //Number of tweets in a recommender agent's bin
-				int smallestBinIndex = 0;
-
-				totalUsers = 0;
-				ArrayList<Integer> recServers;
-				
-				for (String user : listOfUsers)
-				{
-					totalUsers++;
-
-					recServers = new ArrayList<Integer>(); //need to make new list for each user
+					int[] bins = new int[numRecAgents]; //bins for recommender agents
+					long[] balanceBins = new long[numRecAgents];
+					Map<String,UserNodeAssignment> textNodeAssignments = buildBalancedTextNodeAssignments(bins, balanceBins);
+	
+					int smallestBinIndex = 0;
+	
+					totalUsers = 0;
+					ArrayList<Integer> recServers;
 					
-					//INCORRECT implementation of distributed SVM since this replicates dataset
-					if (algorithmRec == CommonNeighbors && numRecAgents > 1)
+					long userAgentStartTime = System.currentTimeMillis();
+					for (String user : listOfUsers)
 					{
-						for (int i = 0; i < numRecAgents; i++)
+						totalUsers++;
+	
+						UserNodeAssignment textNodeAssignment = textNodeAssignments.get(user);
+						if (textNodeAssignment != null)
 						{
-							bins[i] = availableDb.getTotalTweets();
-							recServers.add(i+1);
-						}
-						System.out.println("Controller ENTERD HERE if condition: "+user);
-					}
-					//ORIGINAL CORRECT evenly distributed data
-					else
-					{
-						System.out.println("Controller ENTERD HERE else condition: "+user);
-						currentTweetCount = availableDb.getTweetCountFromUser(user);
-						smallestBinIndex = findSmallestBin(bins);
-	//					totalRecBin = bins.get(smallestBinIndex);
-						totalRecBin = bins[smallestBinIndex];
-						totalRecBin += currentTweetCount;
-	//					bins.set(smallestBinIndex, totalRecBin);
-						bins[smallestBinIndex] = totalRecBin;
-						smallestBinIndex++; //add 1 to index to make index start from 1 instead of 0
-
-						//Add list of recommender servers and increase bins accordingly if distributed
-						//ie. add the tweet count to all recommenders if there are 2 for the user looking for recommendation
-						// K-means Euclidean was added by Sepide 
-						if (usersRec.contains(user) || ((algorithmRec == K_MEANS || algorithmRec == MLP || algorithmRec == K_MEANSEUCLIDEAN || algorithmRec == Doc2Vec || algorithmRec == SVM) && numRecAgents > 1 && datasetFollowees.contains(user)))
-						{	
-							for (int i = 0; i < numRecAgents; i++)
-							{
-								if (smallestBinIndex-1 != i)
-								{
-	//								totalRecBin = bins.get(i);
-									totalRecBin = bins[i];
-									totalRecBin += currentTweetCount;
-	//								bins.set(i,totalRecBin);
-									bins[i] = totalRecBin;
-								}
-								recServers.add(i+1);
-							}
+							recServers = new ArrayList<Integer>(textNodeAssignment.recServers);
+							smallestBinIndex = textNodeAssignment.primaryRecServer;
 						}
 						else
 						{
+							recServers = new ArrayList<Integer>();
+							smallestBinIndex = 1;
 							recServers.add(smallestBinIndex);
-						}	
+						}
 						
-					}
+						System.out.println("Controller recServers: "+user+" "+recServers+" smallestBinIndex: "+smallestBinIndex);
 					
-					System.out.println("Controller recServers: "+user+" "+recServers+" smallestBinIndex: "+smallestBinIndex);
-					
-					long userTweetDelay = calculateTweetDelay(user);
+					long userTweetDelay = getConfiguredTweetDelay(user);
 
 					
 //					userFollowTweetCounts = new LinkedHashMap<String,Integer>();
@@ -1582,20 +1650,23 @@ public class ControllerAgent extends GuiAgent {
 //					System.out.println("totalUsers: "+totalUsers);
 
 				}
+				logStageDuration("INITIALIZE assign bins and create user agents", userAgentStartTime, System.currentTimeMillis());
 
 				int totalnumberoftweets =0;
 //				for(int k=0; k<bins.size();k++)
-				for(int k=0; k<bins.length;k++)
-				{
-					//totalnumberoftweets += bins.get(k);
-//					System.out.println("bin "+k+": "+bins.get(k));
-					System.out.println("bin "+k+": "+bins[k]);
-				}
+					for(int k=0; k<bins.length;k++)
+					{
+						//totalnumberoftweets += bins.get(k);
+	//					System.out.println("bin "+k+": "+bins.get(k));
+						System.out.println("bin "+k+": "+bins[k]);
+						System.out.println("balance bin "+k+": "+balanceBins[k]);
+					}
 
 				//Only update if it is not distributed SVM
 				if ((algorithmRec != SVM) || (algorithmRec == SVM && numRecAgents == 1))
 					myGui.updateList(listOfUsers); //update before creating recommender agents
 				
+				long recommenderAgentStartTime = System.currentTimeMillis();
 				int j =0;
 				for(int i=1; i<numRecAgents+1; i++)
 				{
@@ -1648,6 +1719,8 @@ public class ControllerAgent extends GuiAgent {
 					System.out.println("Made agent: "+recAgentName);
 					j++;
 				}
+				logStageDuration("INITIALIZE create recommender agents", recommenderAgentStartTime, System.currentTimeMillis());
+				logStageDuration("INITIALIZE total text agent creation", textAgentCreationStartTime, System.currentTimeMillis());
 
 				/*//@Jason added algorithmRec arg
 				//Object[] orgAgentArgs = new Object[16];
@@ -1691,6 +1764,7 @@ public class ControllerAgent extends GuiAgent {
 
 			System.out.println("FROM TEXTFILE TotalUsers: "+totalUsers);
 			System.out.println("allUserFollowTweetCounts: "+allUserFollowTweetCounts);
+			logStageDuration("INITIALIZE text-file branch total", textInitializeStartTime, System.currentTimeMillis());
 			
 		}
 
@@ -1808,7 +1882,7 @@ public class ControllerAgent extends GuiAgent {
 
 					userAgentArgs[12] = 1;
 					userAgentArgs[13] = 1;	
-					userAgentArgs[14] = tweetDelay;
+					userAgentArgs[14] = getConfiguredTweetDelay(tweetDelay);
 
 					//@Jason added limit and referenceUser;
 					userAgentArgs[15]=totalTweetLimit;
@@ -1934,6 +2008,7 @@ public class ControllerAgent extends GuiAgent {
 		// myGui.enableList();
 		long endTime = System.currentTimeMillis();
 		System.out.println("Initialize time: "+(endTime-startTime)+"ms");
+		logStageDuration("INITIALIZE total", startTime, endTime);
 		// myGui.showMessageBox("initialize");
 
 	} //inititalize
@@ -2066,10 +2141,10 @@ public class ControllerAgent extends GuiAgent {
 
 	//Finds the smallest bin to fill in when using distributed system
 //	public int findSmallestBin(ArrayList<Integer> numbers) { 
-	public int findSmallestBin(int[] currentBins) {
-		int smallestIndex = 0;
-//		int smallest = numbers.get(0);
-		int smallest = currentBins[0];
+		public int findSmallestBin(int[] currentBins) {
+			int smallestIndex = 0;
+	//		int smallest = numbers.get(0);
+			int smallest = currentBins[0];
 //		for(int i = 0; i < numbers.size(); i++) { 
 //			if(numbers.get(i) < smallest) { 
 //				smallest = numbers.get(i); 
@@ -2081,12 +2156,206 @@ public class ControllerAgent extends GuiAgent {
 				smallest = currentBins[i]; 
 				smallestIndex = i;
 			} 
-		} 
-		return smallestIndex;
-	}
-	
-	public void generateUserNames()
-	{
+			} 
+			return smallestIndex;
+		}
+
+		private int findSmallestBin(long[] currentBins) {
+			int smallestIndex = 0;
+			long smallest = currentBins[0];
+			for(int i = 0; i < currentBins.length; i++) { 
+				if(currentBins[i] < smallest) { 
+					smallest = currentBins[i]; 
+					smallestIndex = i;
+				} 
+			} 
+			return smallestIndex;
+		}
+
+		private Map<String,UserNodeAssignment> buildBalancedTextNodeAssignments(int[] tweetBins, long[] balanceBins)
+		{
+			LinkedHashMap<String,UserNodeAssignment> assignments = new LinkedHashMap<String,UserNodeAssignment>();
+			if (numRecAgents < 1)
+			{
+				return assignments;
+			}
+
+			if (algorithmRec == CommonNeighbors && numRecAgents > 1)
+			{
+				for (int i = 0; i < numRecAgents; i++)
+				{
+					tweetBins[i] = availableDb.getTotalTweets();
+					balanceBins[i] = availableDb.getTotalTweets();
+				}
+
+				for (String user : listOfUsers)
+				{
+					assignments.put(user, new UserNodeAssignment(createAllRecommenderServerList(), 1));
+				}
+				System.out.println("Controller balanced text assignment skipped for CommonNeighbors because all users are replicated to every recommender.");
+				return assignments;
+			}
+
+			final LinkedHashMap<String,Integer> originalUserOrder = new LinkedHashMap<String,Integer>();
+			for (int i = 0; i < listOfUsers.size(); i++)
+			{
+				originalUserOrder.put(listOfUsers.get(i), i);
+			}
+			
+			final LinkedHashMap<String,Long> userAssignmentLoads = new LinkedHashMap<String,Long>();
+			for (String user : listOfUsers)
+			{
+				userAssignmentLoads.put(user, estimateTextUserAssignmentLoad(user));
+			}
+
+			ArrayList<String> usersSortedByEstimatedLoad = new ArrayList<String>(listOfUsers);
+			Collections.sort(usersSortedByEstimatedLoad, new Comparator<String>() {
+				public int compare(String userA, String userB)
+				{
+					long userALoad = userAssignmentLoads.get(userA);
+					long userBLoad = userAssignmentLoads.get(userB);
+					if (userALoad < userBLoad)
+						return 1;
+					if (userALoad > userBLoad)
+						return -1;
+
+					Integer userAOrder = originalUserOrder.get(userA);
+					Integer userBOrder = originalUserOrder.get(userB);
+					if (userAOrder == null)
+						userAOrder = 0;
+					if (userBOrder == null)
+						userBOrder = 0;
+					return userAOrder.compareTo(userBOrder);
+				}
+			});
+
+			for (String user : usersSortedByEstimatedLoad)
+			{
+				int currentTweetCount = availableDb.getTweetCountFromUser(user);
+				long userAssignmentLoad = userAssignmentLoads.get(user);
+				int selectedBinIndex = findSmallestBin(balanceBins);
+				ArrayList<Integer> recServers;
+
+				addUserLoadToTextBin(tweetBins, balanceBins, selectedBinIndex, currentTweetCount, userAssignmentLoad);
+				if (shouldReplicateTextUserToAllRecommenders(user))
+				{
+					recServers = createAllRecommenderServerList();
+					for (int i = 0; i < numRecAgents; i++)
+					{
+						if (i != selectedBinIndex)
+						{
+							addUserLoadToTextBin(tweetBins, balanceBins, i, currentTweetCount, userAssignmentLoad);
+						}
+					}
+				}
+				else
+				{
+					recServers = new ArrayList<Integer>();
+					recServers.add(selectedBinIndex + 1);
+				}
+
+				assignments.put(user, new UserNodeAssignment(recServers, selectedBinIndex + 1));
+			}
+
+			System.out.println("Controller balanced text assignment loads: "+Arrays.toString(balanceBins));
+			System.out.println("Controller balanced text assignment tweet bins: "+Arrays.toString(tweetBins));
+			return assignments;
+		}
+
+		private boolean isSvmBatchMode()
+		{
+			return algorithmRec == SVM && myGui != null && myGui.getSvmBatchUserCount() > 1;
+		}
+
+		private void addUserLoadToTextBin(int[] tweetBins, long[] balanceBins, int binIndex, int tweetCount, long assignmentLoad)
+		{
+			tweetBins[binIndex] += tweetCount;
+			balanceBins[binIndex] += assignmentLoad;
+		}
+
+		private boolean shouldReplicateTextUserToAllRecommenders(String user)
+		{
+			if (usersRec.contains(user))
+			{
+				return true;
+			}
+
+			if (numRecAgents <= 1)
+			{
+				return false;
+			}
+
+			return (algorithmRec == K_MEANS || algorithmRec == MLP || algorithmRec == K_MEANSEUCLIDEAN || algorithmRec == Doc2Vec || algorithmRec == SVM)
+				&& datasetFollowees != null
+				&& datasetFollowees.contains(user);
+		}
+
+		private ArrayList<Integer> createAllRecommenderServerList()
+		{
+			ArrayList<Integer> recServers = new ArrayList<Integer>();
+			for (int i = 0; i < numRecAgents; i++)
+			{
+				recServers.add(i + 1);
+			}
+			return recServers;
+		}
+
+		private long estimateTextUserAssignmentLoad(String user)
+		{
+			int currentTweetCount = availableDb.getTweetCountFromUser(user);
+			long fallbackLoad = Math.max(1, currentTweetCount);
+			ArrayList<Tweet> userTweets = availableDb.getTweetsFromUser(user);
+			if (userTweets == null || userTweets.size() == 0)
+			{
+				return fallbackLoad;
+			}
+
+			HashSet<String> approximateTerms = new HashSet<String>();
+			long characterCount = 0L;
+			for (Tweet tweet : userTweets)
+			{
+				String tweetText = tweet.getTweetText();
+				if (tweetText == null)
+				{
+					continue;
+				}
+				characterCount += tweetText.length();
+				addApproximateTerms(approximateTerms, tweetText);
+			}
+
+			long termCount = Math.max(1, approximateTerms.size());
+			long denseDocumentLoad = termCount * termCount;
+			long textLengthLoad = characterCount / 8L;
+			long tweetLoad = Math.max(1, userTweets.size()) * 10L;
+			return Math.max(fallbackLoad, denseDocumentLoad + textLengthLoad + tweetLoad);
+		}
+
+		private void addApproximateTerms(Set<String> approximateTerms, String tweetText)
+		{
+			String[] tokens = tweetText.toLowerCase().split("[^a-zA-Z]+");
+			for (String token : tokens)
+			{
+				if (token.length() > 0)
+				{
+					approximateTerms.add(token);
+				}
+			}
+		}
+
+		private static class UserNodeAssignment
+		{
+			private final ArrayList<Integer> recServers;
+			private final int primaryRecServer;
+
+			private UserNodeAssignment(ArrayList<Integer> recServers, int primaryRecServer)
+			{
+				this.recServers = recServers;
+				this.primaryRecServer = primaryRecServer;
+			}
+		}
+		
+		public void generateUserNames()
+		{
 		int totalUsers = numFollowees + numFollowers;
 		listOfUsers.clear(); //Clear list of usernames if it already exists
 		String username = "";
@@ -2319,6 +2588,24 @@ public class ControllerAgent extends GuiAgent {
 			tweetDelayLong = 1;
 		
 		return tweetDelayLong;
+	}
+
+	public long getConfiguredTweetDelay(String username)
+	{
+		if (myGui != null && !myGui.isSimulateTweetDelayEnabled())
+		{
+			return 1L;
+		}
+		return calculateTweetDelay(username);
+	}
+
+	public long getConfiguredTweetDelay(long defaultDelay)
+	{
+		if (myGui != null && !myGui.isSimulateTweetDelayEnabled())
+		{
+			return 1L;
+		}
+		return defaultDelay;
 	}
 
 	//Returns the index of the followee
@@ -2965,69 +3252,41 @@ public class ControllerAgent extends GuiAgent {
 	public void determineTrainingTestSet()
 	{
 		int numUsers = allUserDocuments.keySet().size();
-		int numTestUsers = (int) Math.floor(numUsers * TEST_SET_PERCENT);
-		int numTrainUsers = numUsers - numTestUsers;
-		int currTestUsers = 0;
-		int currTrainUsers = 0;
-		testSetUsers = new ArrayList<String>(); //list of users in test set
-		trainSetUsers = new ArrayList<String>(); //list of users in training set
-		List<String> currFollowers; //list of followers for the current followee
-		Map<String,List<String>> tempFolloweeFollowers = new LinkedHashMap<String,List<String>>();
-		tempFolloweeFollowers.putAll(followeeFollowers);
 		
 		System.out.println("Entered determineTrainingTestSet");
-		System.out.println("numTestUsers: "+numTestUsers+" numTrainUsers: "+numTrainUsers);
-		
-		int countTestUser = 0;
-		//loop through each followee for 1 follower at a time until numTestUsers is reached
-		while (currTestUsers < numTestUsers)
-		{
-			for (String followeeName: tempFolloweeFollowers.keySet())
-			{
-				System.out.println("countTestUser: "+countTestUser);
-				currFollowers = tempFolloweeFollowers.get(followeeName);
-				// if a followee set runs out of followers before another
-				if (currFollowers.size() > 0)
-				{
-					testSetUsers.add(currFollowers.remove(0));
-					currTestUsers++;
-					countTestUser++;
-				}
-				
-				tempFolloweeFollowers.put(followeeName,currFollowers);
-				
-				if (currTestUsers == numTestUsers)
-					break;
-			}
-		}
-		
-		System.out.println("Determined Test Set");
-		
-		int countTrainUser = 0;
-		while (currTrainUsers < numTrainUsers)
-		{
-			
-			for (String followeeName: tempFolloweeFollowers.keySet())
-			{
-				System.out.println("countTrainUser: "+countTrainUser);
-				currFollowers = tempFolloweeFollowers.get(followeeName);
-				//if a followee set runs out of followers before another
-				if (currFollowers.size() > 0)
-				{
-					trainSetUsers.add(currFollowers.remove(0));
-					currTrainUsers++;
-					countTrainUser++;
-				}
-				
-				tempFolloweeFollowers.put(followeeName,currFollowers);
-				
-				if (currTrainUsers == numTrainUsers)
-					break;
-			}
-		}
+		System.out.println("numUsers: "+numUsers);
+
+		SvmReproducibility.Split split = SvmReproducibility.stratifiedSplit(
+				followeeFollowers, TEST_SET_PERCENT);
+		trainSetUsers = split.getTrainUsers();
+		testSetUsers = split.getTestUsers();
 		
 		System.out.println("Determined Training Set");
+		System.out.println("Controller SVM reproducibility split seed: "
+				+ SvmReproducibility.SPLIT_SEED + " model seed: " + SvmReproducibility.MODEL_SEED);
+		System.out.println("Controller SVM train class counts: "+countUsersByFollowee(trainSetUsers));
+		System.out.println("Controller SVM test class counts: "+countUsersByFollowee(testSetUsers));
 		
+	}
+
+	private Map<String,Integer> countUsersByFollowee(List<String> users)
+	{
+		Map<String,Integer> counts = new LinkedHashMap<String,Integer>();
+		for (String user : users)
+		{
+			String followeeName = userFollowee.get(user);
+			if (followeeName == null)
+			{
+				followeeName = "UNKNOWN";
+			}
+			Integer count = counts.get(followeeName);
+			if (count == null)
+			{
+				count = 0;
+			}
+			counts.put(followeeName, count + 1);
+		}
+		return counts;
 	}
 	
 	public void createTrainingFile(String pathTrainSet)
@@ -3090,14 +3349,7 @@ public class ControllerAgent extends GuiAgent {
 					uniqueWordCount++;
 				}
 				
-				String attributeClass = "@attribute result ";
-				StringJoiner classJoiner = new StringJoiner(",","{","}");
-				for (String className: followeeFollowers.keySet())
-				{
-					classJoiner.add(className);
-				}
-				
-				attributeClass += classJoiner.toString();
+				String attributeClass = buildArffClassAttribute(followeeFollowers.keySet());
 				
 				bufferedWriterTrain.write(attributeClass);
 				bufferedWriterTrain.newLine();
@@ -3157,7 +3409,7 @@ public class ControllerAgent extends GuiAgent {
 					Map<String,Double> currDocTfidf = allUserDocumentsTFIDF.get(currUser);
 					tfidfJoiner = vectorArffFormat(currDocTfidf,allUniqueDocTerms);
 					
-					bufferedWriterTrain.write(tfidfJoiner.toString() + "," + userFollowee.get(currUser));
+					bufferedWriterTrain.write(tfidfJoiner.toString() + "," + formatArffClassValue(userFollowee.get(currUser)));
 					bufferedWriterTrain.newLine();
 					
 				}
@@ -3196,7 +3448,35 @@ public class ControllerAgent extends GuiAgent {
 		}
 		return tfidfJoinerTemp;
 	}
-	
+
+	private String buildArffClassAttribute(Set<String> classNames)
+	{
+		StringJoiner classJoiner = new StringJoiner(",","{","}");
+		Collection<String> orderedClassNames = classNames;
+		if (algorithmRec == SVM)
+		{
+			orderedClassNames = SvmReproducibility.sortedNonNullValues(classNames);
+		}
+		for (String className: orderedClassNames)
+		{
+			classJoiner.add(formatArffClassValue(className));
+		}
+		return "@attribute result " + classJoiner.toString();
+	}
+
+	private String formatArffClassValue(String className)
+	{
+		if (className == null)
+		{
+			return "?";
+		}
+		return "'" + className
+				.replace("\\", "\\\\")
+				.replace("'", "\\'")
+				.replace("\r", " ")
+				.replace("\n", " ") + "'";
+	}
+
 	public ArrayList<Tweet> getDistributedTestSet()
 	{
 		ArrayList<Tweet> distributedTestSet = new ArrayList<Tweet>();
@@ -3236,9 +3516,12 @@ public class ControllerAgent extends GuiAgent {
 		{
 			e.printStackTrace();
 		}
-		
+
 		data.setClassIndex(data.numAttributes() - 1);
-		Classifier svmModel = new SMO();
+		SMO svmModel = new SMO();
+		svmModel.setC(0.1);
+		svmModel.setBuildCalibrationModels(true);
+		SvmReproducibility.applyModelSeed(svmModel);
 							
 		try{
 			svmModel.buildClassifier(data);

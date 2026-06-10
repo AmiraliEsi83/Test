@@ -27,10 +27,6 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.JADEAgentManagement.*;
 import jade.gui.*;
-import java.util.Scanner;    // added by Sepide 
-import java.util.Random;     // added by Sepide 
-import org.junit.Assert;   // Sepide
-
 import org.apache.commons.math3.random.RandomDataGenerator;
 
 
@@ -146,6 +142,8 @@ public class MobileAgent extends Agent {
 	private static RandomDataGenerator randomDataGenerator = new RandomDataGenerator(); //should not construct in method, make it static
 	
 	private String followeeName;
+	private static final String TWEET_BATCH_ONTOLOGY = "Tweet Batch From User Agent";
+	private static final String TWEET_BATCH_PRIMARY_REC_SERVER_PREFIX = "__PRIMARY_REC_SERVER__\t";
 
 
 	protected void setup() {
@@ -192,9 +190,9 @@ public class MobileAgent extends Agent {
 			generateArtificialTweets();
 		}
 
-		followeeName = (String) args[29];
-		
-		System.out.println(getLocalName()+"'s followee:	"+followeeName);
+			followeeName = (String) args[29];
+			
+			System.out.println(getLocalName()+"'s followee:	"+followeeName);
 		
 		recServerEndMessagePassingTimes = new long[listRecServers.size()];
 		userMessagePassingTimes = new long[listRecServers.size()];;
@@ -335,7 +333,7 @@ public class MobileAgent extends Agent {
 
 					ACLMessage msg2 = new ACLMessage( ACLMessage.INFORM );
 					//ACLMessage msg24 = new ACLMessage( ACLMessage.INFORM );   // added by Sepide 
-					msg2.setContent(totalTweet + " " + whoTweeted+" "+ tweetId + " " + followeeName +" "+ tweetText);
+					msg2.setContent(totalTweet + "\t" + whoTweeted + "\t" + tweetId + "\t" + followeeName + "\t" + tweetText);
 					//msg24.setContent(totalTweet + " " + whoTweeted+" "+ tweetId + " " + followeeName +" "+ tweetText);  // added by Sepide 
 					// msg2.setContent(totalTweet + " " + whoTweeted+" "+ tweetId + " " + tweetText);
 					for (int i = 0; i < listRecServers.size(); i++)
@@ -492,10 +490,17 @@ public class MobileAgent extends Agent {
 					tweetCounter = 0;
 					finishTweeting = false;
 
-					if (readFrom == FROM_DB)
-						addBehaviour(TweetingFromDb);
-					else //read from text
-						addBehaviour(TweetingFromText);
+						if (readFrom == FROM_DB)
+							addBehaviour(TweetingFromDb);
+						else if (useTextBatchMode())
+						{
+							if (!sendTweetsFromTextAsBatch())
+							{
+								addBehaviour(TweetingFromText);
+							}
+						}
+						else //read from text
+							addBehaviour(TweetingFromText);
 				}
 
 				//Msg starter agent
@@ -504,22 +509,22 @@ public class MobileAgent extends Agent {
 					endTweetTime = System.currentTimeMillis();
 					
 					//System.out.println(getLocalName()+" received Stop Tweeting");
-					if (readFrom == FROM_DB)
-						removeBehaviour(TweetingFromDb);
-					else //read from text
-						removeBehaviour(TweetingFromText);
-				}
+						if (readFrom == FROM_DB)
+							removeBehaviour(TweetingFromDb);
+						else if (!useTextBatchMode()) //read from text
+							removeBehaviour(TweetingFromText);
+					}
 
 
 				//Msg sent from no one
-				if (msg!=null && msg.getOntology() == "Stop Querying" && msg.getPerformative() == ACLMessage.REQUEST) 
+				if (msg!=null && "Stop Querying".equals(msg.getOntology()) && msg.getPerformative() == ACLMessage.REQUEST)
 				{
 					System.out.println(getLocalName()+" received Stop Querying");
 					removeBehaviour( Querying );
 				}
 
 				//@Jason added canQuery condition, msg from starter agent
-				if (msg!=null && msg.getOntology() == "Start Querying" && msg.getPerformative() == ACLMessage.REQUEST && canQuery==true)
+				if (msg!=null && "Start Querying".equals(msg.getOntology()) && msg.getPerformative() == ACLMessage.REQUEST && canQuery==true)
 					//if (msg!=null && msg.getOntology() == "Start Querying" && msg.getPerformative() == ACLMessage.REQUEST) 
 				{
 					//removeBehaviour( Tweeting );
@@ -656,10 +661,11 @@ public class MobileAgent extends Agent {
 
 				ACLMessage msg = myAgent.receive(mt_organizingAgent);
 
-				if (msg!=null && msg.getOntology() == "Scores for User") 
+				if (msg!=null && "Scores for User".equals(msg.getOntology()))
 				{
 					System.out.println(myAgent.getLocalName()+" Scores for User Received");
 
+					try {
 					int recCount = 0;
 					LinkedHashMap<String,Double> scoreReceived;
 					
@@ -750,13 +756,13 @@ public class MobileAgent extends Agent {
 							writerSep.write(userScoresText);
 							writerSep.newLine();
 							writerSep.close();
-							usersRec = myGui.getUsersRec();
+							usersRec = getCurrentQueryUserList();
 							System.out.println("UsersRec:" +usersRec);
 							BufferedWriter writerSep3 = new BufferedWriter(new FileWriter(importantStuffDirName+"outPutSepResult.txt",false));
 							BufferedWriter writerSepFollowee2 = new BufferedWriter(new FileWriter(importantStuffDirName+"outPutSepFolloweeResults.txt",true));
 							//BufferedReader readerSep = new BufferedReader(new FileReader("D:/important-stuff/Dataset-Journals-Authors-Titles-August6.txt"));	
 							//RandomAccessFile fileSep = new RandomAccessFile("D:/important-stuff/Dataset-Journals-Authors-Titles-August6.txt", "r");
-							RandomAccessFile fileSep = new RandomAccessFile(importantStuffDirName + selectedFile.getName(), "r");
+							RandomAccessFile fileSep = new RandomAccessFile(selectedFile, "r");
 							//RandomAccessFile fileSep = new RandomAccessFile("D:/important-stuff/Reduced_94k.txt", "r");
 							//June 12 RandomAccessFile fileSep = new RandomAccessFile("D:/important-stuff/Reduced_14k.txt", "r");
 							//RandomAccessFile fileSep = new RandomAccessFile("D:/important-stuff/Reduced_57k.txt", "r");
@@ -835,13 +841,13 @@ public class MobileAgent extends Agent {
 							
 							//BufferedReader readerSepi1 = new BufferedReader(new FileReader("D:/important-stuff/Dataset-Journals-Authors-Titles-August6.txt"));	
 							//BufferedReader readerSepi1 = new BufferedReader(new FileReader("D:/important-stuff/Reduced_94k.txt"));
-							BufferedReader readerSepi1 = new BufferedReader(new FileReader(importantStuffDirName + selectedFile.getName()));
+							BufferedReader readerSepi1 = new BufferedReader(new FileReader(selectedFile));
 							//June 12BufferedReader readerSepi1 = new BufferedReader(new FileReader("D:/important-stuff/Reduced_14k.txt"));
 							//BufferedReader readerSepi1 = new BufferedReader(new FileReader("D:/important-stuff/Reduced_57k.txt"));
 							//BufferedWriter writerSepi1 = new BufferedWriter(new FileWriter("D:/important-stuff/Dataset-Journals-Authors-Titles-August6.txt"));	
 							//BufferedReader readerSepi2 = new BufferedReader(new FileReader("D:/important-stuff/Dataset-Journals-Authors-Titles-August6.txt"));
 							//BufferedReader readerSepi2 = new BufferedReader(new FileReader("D:/important-stuff/Reduced_94k.txt"));
-							BufferedReader readerSepi2 = new BufferedReader(new FileReader(importantStuffDirName + selectedFile.getName()));
+							BufferedReader readerSepi2 = new BufferedReader(new FileReader(selectedFile));
 							//June 12BufferedReader readerSepi2 = new BufferedReader(new FileReader("D:/important-stuff/Reduced_14k.txt"));
 							//BufferedReader readerSepi2 = new BufferedReader(new FileReader("D:/important-stuff/Reduced_57k.txt"));
 							String[] words1 = null;
@@ -931,7 +937,7 @@ public class MobileAgent extends Agent {
 					 
 					 //String filepath="D:/important-stuff/Dataset-Journals-Authors-Titles-August6.txt";
 					 //String filepath="D:/important-stuff/Reduced_94k.txt";
-					 String filepath=importantStuffDirName + selectedFile.getName();
+					 String filepath=selectedFile.getAbsolutePath();
 					 //June 12String filepath="D:/important-stuff/Reduced_14k.txt";
 					 //String filepath="D:/important-stuff/Reduced_57k.txt";
 					 //String tempFile="D:/important-stuff/Dataset-Test-August11.txt";
@@ -1027,296 +1033,45 @@ public class MobileAgent extends Agent {
 						}
 						
 						
-						// Code added for calculating the probability of following a recommendation by the user 
-						
 						int kRecommend = Integer.parseInt(myGui.recommendationField.getText());
-						int min = 1;
-						int max = kRecommend;
-						Random rand = new Random();
-						int randomNum = rand.nextInt((max - min) + 1) + min;
-						System.out.println("Random number generated: " + randomNum);
-						
-						
-						// Code added for calculating the weighted probability of following a recommendation by the user
-						ArrayList<String> KeYs = new ArrayList<String>();
-						ArrayList<Double> vaLues = new ArrayList<Double>();
+						ArrayList<String> recommendationNames = new ArrayList<String>();
+						ArrayList<Double> recommendationWeights = new ArrayList<Double>();
 
 						for (String otherUser: scoreReceived.keySet())
 							{
 									recCount++;
 									if (recCount <= kRecommend)
 									{
-										KeYs.add(otherUser);
-										vaLues.add(scoreReceived.get(otherUser));
+										recommendationNames.add(otherUser);
+										recommendationWeights.add(scoreReceived.get(otherUser));
 										
 									}
 								
 							}
-							
-							/* for(int i = 0; i < KeYs.size(); i++) {   
-								System.out.print("Keys: " + KeYs.get(i)+ "\n");
+							int selectedRecommendationIndex = BatchRecommendationSelector.selectIndex(
+									recommendationWeights,
+									myGui.algorithmSelectionBox.getSelectedIndex() == Doc2Vec,
+									r);
+							String selectedRecommendation = selectedRecommendationIndex >= 0
+									? recommendationNames.get(selectedRecommendationIndex)
+									: null;
+							System.out.println("The option selected by weighted probability is: " + selectedRecommendation);
+							BatchRecommendationSelector.writeSelectedRecommendation(
+									new File(importantStuffDirName + "outputChoice.txt"),
+									selectedRecommendation);
+
+							int selectionBoxIndex = selectedRecommendationIndex + 1;
+							myGui.simulationSelectionBox.setSelectedIndex(selectionBoxIndex);
+							usersRec = getCurrentQueryUserList();
+							try (BufferedWriter writerSepFollowee = new BufferedWriter(
+									new FileWriter(importantStuffDirName + "outPutSepFollowee.txt", false))) {
+								BatchRecommendationSelector.writeFolloweeChoices(
+										writerSepFollowee,
+										usersRec,
+										someTest3,
+										sepTest,
+										selectedRecommendationIndex);
 							}
-							for(int i = 0; i < vaLues.size(); i++) {   
-								System.out.print("Values: " + vaLues.get(i)+ "\n");
-							} */
-							
-							
-							
-							String lineC = "";
-							String[] option = null;
-							
-							try {
-								
-								String doc2vecDirLoc = "TwitterGatherDataFollowers/userRyersonU/";
-								File doc2vecLocDir = new File(doc2vecDirLoc);
-								if (!doc2vecLocDir.exists())
-								{
-										doc2vecLocDir.mkdirs();
-								}
-								//java.lang.ProcessBuilder pb = new ProcessBuilder("C:/Program Files/Python39/python.exe","D:/Simulator-S-15-May-2020/TwitterGatherDataFollowers/userRyersonU/probab.py",""+KeYs.get(0),""+KeYs.get(1),""+KeYs.get(2),""+vaLues.get(0),""+vaLues.get(1),""+vaLues.get(2)).inheritIO();
-                                java.lang.ProcessBuilder pb = new ProcessBuilder("python",doc2vecDirLoc + "probab.py",""+KeYs,""+vaLues,""+myGui.algorithmSelectionBox.getSelectedIndex()).inheritIO();
-								Process p = pb.start();
-								
-								int exitCode = p.waitFor();
-								Assert.assertEquals("No errors should be detected", 0, exitCode);
-					
-					             try 
-									 {
-										  Thread.sleep(500);
-									 } 
-								  catch(InterruptedException e)
-									{
-									  e.printStackTrace();
-									}
-									
-									System.out.println("Probability Calculation is finished");
-									BufferedReader readerChoice = new BufferedReader(new FileReader(importantStuffDirName +"outputChoice.txt"));
-									lineC = readerChoice.readLine();
-									
-									while (lineC != null ) {
-										
-										
-										option = lineC.split(" ");
-										lineC = readerChoice.readLine();
-										System.out.println("the option with probability selected is: " +option[0]);
-									}
-									readerChoice.close();
-									 
-									
-								
-							}
-							catch(InterruptedException e)
-							{
-								 // this part is executed when an exception (in this example InterruptedException) occurs
-							}
-						
-					
-                    BufferedWriter writerFollowee = new BufferedWriter(new FileWriter(importantStuffDirName + "outPutSepFollowee.txt"));					
-					File file = new File(importantStuffDirName + "outPutSepFollowee.txt");	
-					try {
-					
-				   Scanner scanner = new Scanner(file);
-				   Scanner myObj = new Scanner(System.in); 
-				   String line = null;   
-				   BufferedWriter writerSepFollowee = new BufferedWriter(new FileWriter(importantStuffDirName + "outPutSepFollowee.txt",true));
-				   usersRec = myGui.getUsersRec();
-				   //Commented out by Sepide in Des.30 int iterNum = myGui.simulationSelectionBox.getSelectedIndex();
-				   //commented out on Feb17 int iterNum = (sepTest.indexOf(maxKey) + 2);
-				   //Commented out on Feb. 17myGui.simulationSelectionBox.setSelectedIndex(iterNum);
-				   //int iterNum  = randomNum;
-				   int iterNum  = KeYs.indexOf(option[0]) + 1;  // added on March 13
-				   myGui.simulationSelectionBox.setSelectedIndex(iterNum);
-                   //String iterNum = myObj.nextLine();
-                   //System.out.println("number of iteration for this user is: " + iterNum);				   
-				   //int lineNum = 1;
-				   /* if (file.exists()){
-					   
-				   }  */
-				   something: for(String str: usersRec) {
-						  
-						 while (true) { 
-                            if(iterNum == 1) {
-								writerSepFollowee.write(str);
-						        writerSepFollowee.write(" Followes ");
-								writerSepFollowee.write(someTest3);
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(0));
-								writerSepFollowee.newLine();
-								break something;
-			                }							
-							else if(iterNum == 2) {
-								
-								for (int i = 1; scanner.hasNext()== true; i++){
-									    line = scanner.nextLine();
-								    // if (line.contains(str + " Followes " + sepTest.get(0)))		
-									if (line.contains(str + " Followes " + sepTest.get(0))){
-										//writerSepFollowee.write("\n");
-										writerSepFollowee.write("\n" + str);
-							            writerSepFollowee.write(" Followes ");
-							            writerSepFollowee.write(sepTest.get(1));
-								        //writerSepFollowee.newLine();
-								        break something;
-									}else continue;
-								}
-								writerSepFollowee.write(str);
-						        writerSepFollowee.write(" Followes ");
-								writerSepFollowee.write(someTest3);
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(0));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(1));
-								writerSepFollowee.newLine();
-								break something;
-	
-			                }
-							else if (iterNum == 3){
-								for (int i = 1; scanner.hasNext()== true; i++){
-									    line = scanner.nextLine();
-									if (line.contains(str + " Followes " + sepTest.get(1))){
-										writerSepFollowee.write(str);
-							            writerSepFollowee.write(" Followes ");
-							            writerSepFollowee.write(sepTest.get(2));
-								        writerSepFollowee.newLine();
-								        break something;
-									}else continue;
-								}
-								writerSepFollowee.write(str);
-						        writerSepFollowee.write(" Followes ");
-								writerSepFollowee.write(someTest3);
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(0));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(1));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(2));
-								writerSepFollowee.newLine();
-								break something;
-			                }
-							
-							else if (iterNum == 4){
-								for (int i = 1; scanner.hasNext()== true; i++){
-									    line = scanner.nextLine();
-									if (line.contains(str + " Followes " + sepTest.get(2))){
-										writerSepFollowee.write(str);
-							            writerSepFollowee.write(" Followes ");
-							            writerSepFollowee.write(sepTest.get(3));
-								        writerSepFollowee.newLine();
-								        break something;
-									}else continue;
-								}
-								writerSepFollowee.write(str);
-						        writerSepFollowee.write(" Followes ");
-								writerSepFollowee.write(someTest3);
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(0));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(1));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(2));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(3));
-								writerSepFollowee.newLine();
-								break something;
-			                }
-							else if (iterNum == 5){
-								for (int i = 1; scanner.hasNext()== true; i++){
-									    line = scanner.nextLine();
-									if (line.contains(str + " Followes " + sepTest.get(3))){
-										writerSepFollowee.write(str);
-							            writerSepFollowee.write(" Followes ");
-							            writerSepFollowee.write(sepTest.get(4));
-								        writerSepFollowee.newLine();
-								        break something;
-									}else continue;
-								}
-								writerSepFollowee.write(str);
-						        writerSepFollowee.write(" Followes ");
-								writerSepFollowee.write(someTest3);
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(0));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(1));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(2));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(3));
-								writerSepFollowee.newLine();
-								writerSepFollowee.write(str);
-							    writerSepFollowee.write(" Followes ");
-							    writerSepFollowee.write(sepTest.get(4));
-								writerSepFollowee.newLine();
-								break something;
-			                }
-						/* else if (scanner.hasNextLine() == true) {
-							      line = scanner.nextLine();
-							if (line.contains(str + " Followes " + someTest3)){
-								if (scanner.hasNextLine() == true){
-									line = scanner.nextLine();
-									if (line.contains(str + " Followes " + sepTest.get(0))){
-										if (scanner.hasNextLine() == true){
-											line = scanner.nextLine();
-											if (line.contains(str + " Followes " + sepTest.get(1))){
-												if (scanner.hasNextLine() == true){
-													line = scanner.nextLine();
-													if (line.contains(str + " Followes " + sepTest.get(2))){
-														break something;
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-							
-			             }  */
-							
-					}		
-							
-						  //String followeeNameSep = followeeFollowers.getKey("Germany");
-							//Commented out Oct. 23 String followeeSep = userFollowee.get(str);
-							// Commented out Oct 23 writerSepFollowee.newLine();
-							//String followeeSep = userFollowee.get(str);
-							//writerSepFollowee.write(" Followes ");							
-						    
-						  		
-					}
-				   
-				   writerSepFollowee.close();
-				   scanner.close();  
-				   }
-				   
-				   catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
 						
 						//Iterator itr2 = sepTest.iterator(); 
 						  /* while(itr2.hasNext())
@@ -1338,23 +1093,53 @@ public class MobileAgent extends Agent {
 							String selectedFileName = selectedFile.getName();
 							// Construct the target filename by prepending "name-number-"
 							String targetNameNumberFileName = importantStuffDirName + "name-number-" + selectedFileName;
+							String graphEdgesBaseName = getDatasetGraphBaseName(selectedFileName);
+							String graphEdgesFileName = importantStuffDirName + graphEdgesBaseName + ".txt";
 
 							File nameNumberFile = new File(targetNameNumberFileName);
 
-							System.out.println("Checking for file: " + nameNumberFile.getPath()); // Debugging output
+							System.out.println("Checking for file: " + nameNumberFile.getPath());
+							if (!nameNumberFile.exists()) {
+								LinkedHashSet<String> nodeNames = new LinkedHashSet<String>();
+								try {
+									BufferedReader datasetReader = new BufferedReader(new FileReader(selectedFile));
+									String datasetLine;
+									while ((datasetLine = datasetReader.readLine()) != null) {
+										String[] datasetFields = datasetLine.split("\t", 6);
+										if (datasetFields.length >= 5) {
+											nodeNames.add(datasetFields[0]);
+											nodeNames.add(datasetFields[4]);
+										}
+									}
+									datasetReader.close();
+
+									BufferedWriter mapWriter = new BufferedWriter(new FileWriter(nameNumberFile));
+									int nodeNumber = 1;
+									for (String nodeName : nodeNames) {
+										mapWriter.write(nodeName + "\t" + nodeNumber);
+										mapWriter.newLine();
+										nodeNumber++;
+									}
+									mapWriter.close();
+									System.out.println("Created name-number file: " + targetNameNumberFileName);
+								} catch (IOException e) {
+									System.err.println("Error creating name-number file: " + targetNameNumberFileName);
+									e.printStackTrace();
+								}
+							}
 
 							// Check if the constructed file path exists and is a file
 							if (nameNumberFile.exists() && nameNumberFile.isFile()) {
-								System.out.println("Found file: " + targetNameNumberFileName); // Debugging output
+								System.out.println("Found file: " + targetNameNumberFileName);
 								try {
 									// 1. Find User's Number
 									BufferedReader readerUserNum = new BufferedReader(new FileReader(targetNameNumberFileName));
 									String lineUser;
-									String userNum = null; // Initialize user number for this scope
+									String userNum = null;
 									outerUser: while ((lineUser = readerUserNum.readLine()) != null) {
-										wordsFile3 = lineUser.split(" "); // Split line
-										if (wordsFile3.length > 1) { // Basic check for valid line format
-											for(String str: usersRec) { // usersRec needs to be accessible
+										wordsFile3 = lineUser.split("\\s+(?=\\d+$)", 2); // Keep names containing spaces intact
+										if (wordsFile3.length > 1) {
+											for(String str: usersRec) {
 												if (wordsFile3[0].equals(str)){
 													userNum = wordsFile3[1]; // Store the found user number
 													System.out.println("User's Number ("+str+"):" + userNum);
@@ -1368,31 +1153,30 @@ public class MobileAgent extends Agent {
 									// 2. Find User's Original Followee's Number
 									BufferedReader readerOrigFollowee = new BufferedReader(new FileReader(targetNameNumberFileName));
 									String lineOrigFollowee;
-//									String[] wordsFile5; // Declare here
 									outerOrigFollowee: while ((lineOrigFollowee = readerOrigFollowee.readLine()) != null) {
-										wordsFile5 = lineOrigFollowee.split(" ");
-										if (wordsFile5.length > 1 && wordsFile5[0].equals(someTest3)){ // someTest3 needs to be accessible
+										wordsFile5 = lineOrigFollowee.split("\\s+(?=\\d+$)", 2);
+										if (wordsFile5.length > 1 && wordsFile5[0].equals(someTest3)){
 											System.out.println("User's Original Followee Number:" + wordsFile5[1]);
-											userFolloweeNum = wordsFile5[1]; // Assign to class/outer scope variable if needed elsewhere
+											userFolloweeNum = wordsFile5[1]; // Preserve the original edge target.
 											break outerOrigFollowee;
 										}
 									}
 									readerOrigFollowee.close();
 
 									// 3. Find Selected Followee's Number
-									int iterNum = myGui.simulationSelectionBox.getSelectedIndex(); // Needs myGui
+									int iterNum = myGui.simulationSelectionBox.getSelectedIndex();
 									System.out.println("iterNum (Recommendation choice):  " + iterNum);
 									String selectedFolloweeNum = null; // Initialize
 									BufferedReader readerSelectedFollowee = new BufferedReader(new FileReader(targetNameNumberFileName));
 									String lineSelectedFollowee;
 									outerSelectedFollowee: while ((lineSelectedFollowee = readerSelectedFollowee.readLine()) != null) {
-										wordsFile4 = lineSelectedFollowee.split(" ");
+										wordsFile4 = lineSelectedFollowee.split("\\s+(?=\\d+$)", 2);
 										if (wordsFile4.length > 1) {
 											// Determine the target followee name based on iterNum and sepTest
 											String targetFolloweeName = null;
 											if (iterNum == 0 && someTest3 != null) {
 												targetFolloweeName = someTest3; // 0 means original followee
-											} else if (iterNum > 0 && iterNum <= sepTest.size()) { // sepTest needs to be accessible (e.g., ArrayList<String>)
+											} else if (iterNum > 0 && iterNum <= sepTest.size()) {
 												targetFolloweeName = sepTest.get(iterNum - 1); // Get from recommendations list
 											}
 
@@ -1406,32 +1190,20 @@ public class MobileAgent extends Agent {
 									}
 									readerSelectedFollowee.close();
 
-									// 4. Write Edges
-									if (userNum != null && userFolloweeNum != null && !userFolloweeNum.isEmpty() && selectedFolloweeNum != null) {
-										try {
-											BufferedWriter writeredges = new BufferedWriter(new FileWriter(importantStuffDirName + "edges-numbers.txt",true));
-											writeredges.write(userNum + " " + userFolloweeNum + "\n"); // Original edge
-											writeredges.write(userNum + " " + selectedFolloweeNum); // New edge based on recommendation
-											writeredges.newLine();
-											writeredges.close();
-											System.out.println("Wrote edges for user " + userNum + " to edges-numbers.txt");
-										} catch (IOException e_edge) {
-											System.err.println("Error writing edges to edges-numbers.txt");
-											e_edge.printStackTrace();
+										// 4. Write Edges
+										if (userNum != null && userFolloweeNum != null && !userFolloweeNum.isEmpty() && selectedFolloweeNum != null) {
+											try (BufferedWriter writeredges = new BufferedWriter(new FileWriter(graphEdgesFileName,true))) {
+												writeredges.write(userNum + " " + userFolloweeNum + "\n"); // Original edge
+												writeredges.write(userNum + " " + selectedFolloweeNum); // New edge based on recommendation
+												writeredges.newLine();
+												System.out.println("Wrote edges for user " + userNum + " to " + graphEdgesFileName);
+											} catch (IOException e_edge) {
+												System.err.println("Error writing edges to " + graphEdgesFileName);
+												e_edge.printStackTrace();
+											}
+										} else {
+											System.out.println("Skipping edge writing - required numbers not found.");
 										}
-										// Trigger conversion script with name-number file for complete node set
-										try {
-											 Process p = java.lang.Runtime.getRuntime().exec( "python "+ importantStuffDirName +"TXT2GMLv1.0/conversion.py" + "  " + importantStuffDirName +"edges-numbers" + " " + targetNameNumberFileName);
-											p.waitFor();
-										} catch (Exception e_conv) {
-											System.err.println("Error executing conversion script");
-											e_conv.printStackTrace();
-										}
-
-									} else {
-										System.out.println("Skipping edge writing - required numbers not found.");
-									}
-
 
 								} catch (FileNotFoundException e) {
 									System.err.println("Error: Could not find or open file: " + targetNameNumberFileName);
@@ -2033,19 +1805,99 @@ public class MobileAgent extends Agent {
 					// End of code added by Sepide
 					
 				
-					ACLMessage msg4 = new ACLMessage( ACLMessage.INFORM );
-					msg4.addReceiver( new AID("Organizing Agent1", AID.ISLOCALNAME) ); 
-					msg4.setContent(Integer.toString(requestnumber));
-					msg4.setOntology("Scores Received");
-					send(msg4);
-					
-					 
-				}			  
+					} catch (RuntimeException e) {
+						System.err.println(getLocalName() + " failed while applying recommendation side effects.");
+						e.printStackTrace();
+					} finally {
+						sendScoresReceivedAcknowledgement();
+					}
+				}
 			}
-		};				
+		};
 
 		addBehaviour( Communication );
 	}	
+
+	private void sendScoresReceivedAcknowledgement()
+	{
+		ACLMessage acknowledgement = new ACLMessage(ACLMessage.INFORM);
+		acknowledgement.addReceiver(new AID("Organizing Agent1", AID.ISLOCALNAME));
+		acknowledgement.setContent(Integer.toString(requestnumber));
+		acknowledgement.setOntology("Scores Received");
+		send(acknowledgement);
+	}
+
+	private boolean useTextBatchMode()
+	{
+		return readFrom == FROM_TEXT && algorithmRec != MLP;
+	}
+	
+	private boolean sendTweetsFromTextAsBatch()
+	{
+		ArrayList<String> tweetBatch = new ArrayList<String>(usersTweetFromDb.size() + 1);
+		tweetBatch.add(TWEET_BATCH_PRIMARY_REC_SERVER_PREFIX + connectedtoTfidfservernumber);
+		for (int i = usersTweetFromDb.size() - 1; i >= 0; i--)
+		{
+			tweetBatch.add(formatTweetMessage(usersTweetFromDb.get(i)));
+		}
+		
+		ACLMessage msgBatch = new ACLMessage(ACLMessage.INFORM);
+		for (int i = 0; i < listRecServers.size(); i++)
+		{
+			msgBatch.addReceiver(new AID("Recommender-ServiceAgent"+listRecServers.get(i), AID.ISLOCALNAME));
+		}
+		msgBatch.setConversationId(conversationIDReceived);
+		msgBatch.setOntology(TWEET_BATCH_ONTOLOGY);
+		
+		try
+		{
+			msgBatch.setContentObject(tweetBatch);
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+		
+		recServerBeginMessagePassingTime = System.nanoTime();
+		send(msgBatch);
+		
+		tweetCounter = usersTweetFromDb.size();
+		if (followAfterTweet > 0 && tweetCounter >= followAfterTweet)
+		{
+			sendFollowedFromUserAgentMessage();
+		}
+		
+		tweetCount = 0;
+		finishTweeting = true;
+		sendTweetingCompletedMessage();
+		return true;
+	}
+		
+	private String formatTweetMessage(Tweet currentTweet)
+	{
+		return totalTweet + "\t" + currentTweet.getUser() + "\t" + currentTweet.getTweetId() + "\t" + followeeName + "\t" + currentTweet.getTweetText();
+	}
+	
+	private void sendFollowedFromUserAgentMessage()
+	{
+		ACLMessage msg3 = new ACLMessage( ACLMessage.INFORM );
+		msg3.addReceiver( new AID(userToFollow+"-UserAgent", AID.ISLOCALNAME) );
+		msg3.setOntology("Followed From User Agent");			
+		send(msg3);
+	}
+	
+	private void sendTweetingCompletedMessage()
+	{
+		ACLMessage msg = new ACLMessage( ACLMessage.INFORM );
+		String temp1 = Integer.toString(totalTweet);
+		String temp2 = Integer.toString(connectedtoTfidfservernumber);
+		msg.setContent("Tweets Send(" + temp1 + ") connected to TFIDF" + temp2 + " ConversionID: " + conversationIDReceived);
+		msg.addReceiver( new AID("Starter Agent", AID.ISLOCALNAME) ); 
+		msg.setConversationId(conversationIDReceived);
+		msg.setOntology("Tweeting Completed");
+		send(msg);
+	}
 
 	//generate tweets based on individual users
 	public String generateTweetText4(String tweetUserName)
@@ -2180,12 +2032,40 @@ public class MobileAgent extends Agent {
 			
 			artificialTweets.add(artificialTweet);
 		}
-		
+
 		usersTweetFromDb.clear();
 		usersTweetFromDb = artificialTweets;
 	}
-	
-	protected void takeDown() 
+
+	private ArrayList<String> getCurrentQueryUserList()
+	{
+		ArrayList<String> currentUsers = new ArrayList<String>();
+		currentUsers.add(getCurrentUserName());
+		return currentUsers;
+	}
+
+	private String getCurrentUserName()
+	{
+		return getLocalName().split("-",2)[0];
+	}
+
+	private String getDatasetGraphBaseName(String selectedFileName)
+	{
+		String datasetName = selectedFileName;
+		int extensionIndex = datasetName.lastIndexOf('.');
+		if (extensionIndex > 0)
+		{
+			datasetName = datasetName.substring(0, extensionIndex);
+		}
+		datasetName = datasetName.replaceAll("[^A-Za-z0-9._-]", "_");
+		if (datasetName.length() == 0)
+		{
+			datasetName = "uploaded-dataset";
+		}
+		return "edges-numbers-" + datasetName;
+	}
+
+	protected void takeDown()
 	{
 		try {
 			DFService.deregister(this);

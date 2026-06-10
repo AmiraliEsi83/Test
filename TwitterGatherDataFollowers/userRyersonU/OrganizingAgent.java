@@ -74,6 +74,7 @@ public class OrganizingAgent extends Agent
 	public static final int Doc2Vec = 4;             // added by Sepide
     public static final int CommonNeighbors = 5;        // added by Sepide	
 	public static final int K_MEANSEUCLIDEAN = 6;   // added by Sepide 
+	private static final boolean WRITE_MERGE_DEBUG_FILES = false;
 	
 	private ArrayList<String> global_interestlistData = new ArrayList<String>();		
 
@@ -163,21 +164,7 @@ public class OrganizingAgent extends Agent
 		agent_name = getLocalName();
 		AID_agent_name = getAID();
 
-		DFAgentDescription template = new DFAgentDescription();
-		ServiceDescription sd = new ServiceDescription();
-		sd.setType("Recommender Agent");
-		template.addServices(sd);
-		try {
-			DFAgentDescription[] result = DFService.search(this, template);
-			allRecAgents = new AID[result.length];
-			//allRecAgents = new AID[2];   // added by Sepide 
-			for (int i = 0; i < result.length; ++i) {
-				allRecAgents[i] = result[i].getName();
-			}
-		}
-		catch (FIPAException fe) {
-			fe.printStackTrace();
-		}
+		setExpectedRecommenderAgents();
 
 
 		DFAgentDescription template2 = new DFAgentDescription();
@@ -195,24 +182,38 @@ public class OrganizingAgent extends Agent
 			fe.printStackTrace();
 		}
 
-		InitializeBehaviour initialBehaviour = new InitializeBehaviour(this);
-		addBehaviour(initialBehaviour);
+			InitializeBehaviour initialBehaviour = new InitializeBehaviour(this);
+			addBehaviour(initialBehaviour);
+			
+			setQueueSize(0);
+		}
 		
-		setQueueSize(0);
-	}
-
-	private class InitializeBehaviour extends CyclicBehaviour {
+		private void setExpectedRecommenderAgents()
+		{
+			allRecAgents = new AID[numNodes];
+			for (int i = 0; i < numNodes; i++)
+			{
+				allRecAgents[i] = new AID("Recommender-ServiceAgent" + (i + 1), AID.ISLOCALNAME);
+			}
+		}
+	
+		private class InitializeBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
 		public InitializeBehaviour(Agent a) {
 			super(a);
 		}
 
-		public void action() {
-			ACLMessage msg = this.myAgent.receive();
-			//Message from user agents
-			if (msg!=null && msg.getOntology() == "Ready")
-			{
+			public void action() {
+				ACLMessage msg = this.myAgent.receive();
+				if (msg == null)
+				{
+					block();
+					return;
+				}
+				//Message from user agents
+				if ("Ready".equals(msg.getOntology()))
+				{
 //				++numberofusers;
 
 //				String user_name1[] = msg.getSender().getLocalName().split("-",2);
@@ -247,24 +248,8 @@ public class OrganizingAgent extends Agent
 //						fe.printStackTrace();
 //					}
 					
-					while (allRecAgents.length < numNodes)
-					{
-						DFAgentDescription template = new DFAgentDescription();
-						ServiceDescription sd = new ServiceDescription();
-						sd.setType("Recommender Agent");
-						template.addServices(sd);
-						try {
-							DFAgentDescription[] result = DFService.search(myAgent, template);
-							allRecAgents = new AID[result.length];
-							for (int i = 0; i < result.length; ++i) {
-								allRecAgents[i] = result[i].getName();
-							}
-						}
-						catch (FIPAException fe) {
-							fe.printStackTrace();
-						}
-					}
-					
+					setExpectedRecommenderAgents();
+						
 					ACLMessage msg2 = new ACLMessage( ACLMessage.REQUEST );
 					for(int i=0; i<allRecAgents.length; i++)
 					{
@@ -287,7 +272,7 @@ public class OrganizingAgent extends Agent
 
 			}
 
-			if (msg != null && msg.getOntology()== "Merge Lists")
+			if ("Merge Lists".equals(msg.getOntology()))
 			{
 				
 				recMergeCount++;
@@ -351,30 +336,33 @@ public class OrganizingAgent extends Agent
 
 					//System.out.println("finalScores: "+finalScores);
 					
-					try {
-						FileWriter writer = new FileWriter("finalScores_Not_Normalized.txt", true); //append
-						BufferedWriter bufferedWriter = new BufferedWriter(writer);
-						
-						for (String userRec: finalScores.keySet())
-						{
-							bufferedWriter.write(userRec+" Scores: [\t");
+					if (WRITE_MERGE_DEBUG_FILES)
+					{
+						try {
+							FileWriter writer = new FileWriter("finalScores_Not_Normalized.txt", true); //append
+							BufferedWriter bufferedWriter = new BufferedWriter(writer);
 							
-							TreeMap<String,Double> otherUserScores = finalScores.get(userRec);
-							
-							for (String otherUser: otherUserScores.keySet())
+							for (String userRec: finalScores.keySet())
 							{
-								double oldScore = otherUserScores.get(otherUser);
+								bufferedWriter.write(userRec+" Scores: [\t");
 								
-								bufferedWriter.write(otherUser+":"+oldScore+"\t");				
+								TreeMap<String,Double> otherUserScores = finalScores.get(userRec);
+								
+								for (String otherUser: otherUserScores.keySet())
+								{
+									double oldScore = otherUserScores.get(otherUser);
+									
+									bufferedWriter.write(otherUser+":"+oldScore+"\t");				
+								}
+								
 							}
-							
+							bufferedWriter.write("]");
+							bufferedWriter.newLine();
+							bufferedWriter.close();
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
 						}
-						bufferedWriter.write("]");
-						bufferedWriter.newLine();
-						bufferedWriter.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
 					}
 
 					//Normalize the scores
@@ -426,7 +414,7 @@ public class OrganizingAgent extends Agent
 			}
 
 			//Message from user agent to get scores
-			if (msg!=null && msg.getOntology() == "Get Score List")		
+			if ("Get Score List".equals(msg.getOntology()))		
 			{
 				usersRequestedCount++;
 
@@ -474,7 +462,7 @@ public class OrganizingAgent extends Agent
 			}
 
 			//Message from user agent that user received score list
-			if (msg!=null && msg.getOntology()=="Scores Received")
+			if ("Scores Received".equals(msg.getOntology()))
 			{
 				long messagePassTime;
 				String requestedBy = msg.getSender().getLocalName().split("-",2)[0];
@@ -496,7 +484,7 @@ public class OrganizingAgent extends Agent
 			
 			//Message from multiple rec agents to average weight for general MLP
 						
-			if (msg!=null && msg.getOntology()=="Average Weights MLP")
+			if ("Average Weights MLP".equals(msg.getOntology()))
 			{   
 				averageWeightCount++;
 				MultiLayerPerceptron receivedMLP = null;
