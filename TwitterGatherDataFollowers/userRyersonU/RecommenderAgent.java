@@ -4084,6 +4084,17 @@ public class RecommenderAgent extends Agent
 				
 				// Code added by Sepide
 				
+				else if (isDoc2VecBatchMode())
+				{
+					startTimeAlgorithm = System.nanoTime();
+					int topn = Integer.parseInt(myGui.recommendationField.getText());
+					allUserScores = runDoc2VecBatchRecommendations(topn);
+					endTimeAlgorithm = System.nanoTime();
+					completionTimeAlgorithm = endTimeAlgorithm - startTimeAlgorithm;
+
+					System.out.println("Mapper"+nodeNumber+"- Total Tweets Processed: " + tweetCount + " TP: " + convertMs(completionTimeTextProcessing) + " ms Reducer"+ nodeNumber+ " Doc2Vec Batch: " + convertMs(completionTimeAlgorithm) + " ms Total: " + convertMs(completionTimeTextProcessing+completionTimeAlgorithm)+" ms");
+					myGui.appendResult("Mapper"+nodeNumber+"- Total Tweets Processed: " + tweetCount + " TP: " + convertMs(completionTimeTextProcessing) + " ms Reducer"+ nodeNumber+ " Doc2Vec Batch: " + convertMs(completionTimeAlgorithm) + " ms Total: " + convertMs(completionTimeTextProcessing+completionTimeAlgorithm)+" ms");
+				}
 				else if (algorithmRec == Doc2Vec)
 				{
 					startTimeAlgorithm = System.nanoTime();
@@ -5667,6 +5678,95 @@ public class RecommenderAgent extends Agent
 				}
 
 				return userScore;
+			}
+
+			private boolean isDoc2VecBatchMode()
+			{
+				return algorithmRec == Doc2Vec && usersRec != null && usersRec.size() > 1;
+			}
+
+			private TreeMap<String,TreeMap<String,Double>> runDoc2VecBatchRecommendations(int topn)
+			{
+				TreeMap<String,TreeMap<String,Double>> batchScores = new TreeMap<String,TreeMap<String,Double>>();
+				ArrayList<String> batchUsers = new ArrayList<String>(usersRec);
+				File selectedDataset = myGui == null || myGui.fileChooser == null
+						? null : myGui.fileChooser.getSelectedFile();
+				if (selectedDataset == null)
+				{
+					System.out.println(getLocalName()+" Doc2Vec batch cannot run because no dataset file is selected.");
+					return buildDoc2VecBatchFailureScores(batchUsers, topn);
+				}
+
+				int doc2vecWorkers = Math.min(Math.max(Runtime.getRuntime().availableProcessors() - 1, 1), 12);
+				File batchScript = new File("TwitterGatherDataFollowers/userRyersonU/doc2vec_batch.py");
+				try
+				{
+					Doc2VecBatchRunner.Result result = Doc2VecBatchRunner.run(
+							"python", batchScript, topn, selectedDataset,
+							Integer.parseInt(nodeNumber), numRecAgents, doc2vecWorkers, batchUsers);
+					for (Map.Entry<String,String> error : result.getErrors().entrySet())
+					{
+						System.out.println(getLocalName()+" Doc2Vec batch warning for "+error.getKey()+": "+error.getValue());
+					}
+					if (result.getExitCode() != 0)
+					{
+						System.out.println(getLocalName()+" Doc2Vec batch process exited with code "+result.getExitCode()+". Incomplete users will receive fallback scores.");
+					}
+
+					for (String recUser : batchUsers)
+					{
+						TreeMap<String,Double> userScores = result.getScores(recUser);
+						if (result.isCompleted(recUser) && userScores != null)
+						{
+							batchScores.put(recUser, new TreeMap<String,Double>(userScores));
+						}
+						else
+						{
+							System.out.println(getLocalName()+" Doc2Vec batch did not complete for "+recUser+". Writing fallback scores so querying can continue.");
+							batchScores.put(recUser, buildDoc2VecBatchFailureScoreMap(recUser, topn));
+						}
+					}
+				}
+				catch (IOException e)
+				{
+					e.printStackTrace();
+					return buildDoc2VecBatchFailureScores(batchUsers, topn);
+				}
+				catch (InterruptedException e)
+				{
+					Thread.currentThread().interrupt();
+					e.printStackTrace();
+					return buildDoc2VecBatchFailureScores(batchUsers, topn);
+				}
+
+				return batchScores;
+			}
+
+			private TreeMap<String,TreeMap<String,Double>> buildDoc2VecBatchFailureScores(List<String> batchUsers, int topn)
+			{
+				TreeMap<String,TreeMap<String,Double>> failureScores = new TreeMap<String,TreeMap<String,Double>>();
+				for (String recUser : batchUsers)
+				{
+					failureScores.put(recUser, buildDoc2VecBatchFailureScoreMap(recUser, topn));
+				}
+				return failureScores;
+			}
+
+			private TreeMap<String,Double> buildDoc2VecBatchFailureScoreMap(String recUser, int topn)
+			{
+				TreeMap<String,Double> fallbackScores = new TreeMap<String,Double>();
+				TreeSet<String> localCandidates = new TreeSet<String>(allUserDocuments.keySet());
+				localCandidates.remove(recUser);
+				int resultLimit = Math.max(topn, 1);
+				for (String candidate : localCandidates)
+				{
+					fallbackScores.put(candidate, -1.0);
+					if (fallbackScores.size() >= resultLimit)
+					{
+						break;
+					}
+				}
+				return fallbackScores;
 			}
 
 			private boolean isSvmBatchMode()

@@ -68,6 +68,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	public static final int CHANGE_TO_USERSIM = 1;
 	public static final int COLLECT_DATA = 4;
 	public static final int START_USER_GEN_SIM =  5;
+	public static final int RESET_EXPERIMENT = 6;
 	public static final String USERSIM_PANEL_ID = "Change to User Sim";
 	public static final String PERFORMANCE_PANEL_ID = "Performance Measurement";
 	private int simulationNo;    // added by Sepide 
@@ -106,7 +107,8 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	private JTextField numMappersField;
 	public JButton initializeButton;
 	private JButton quitButton;
-	public JButton simulationButton;  // added by Sepide 
+	private JButton resetExperimentButton;
+	public JButton simulationButton;  // added by Sepide
 	public JButton startButton;
 	private JButton getUsersButton;
 	private JButton changePerformanceButton;
@@ -414,7 +416,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 			recommendationField.setHorizontalAlignment(JTextField.CENTER);
 			recommendationField.addActionListener(new RecommendationListener());
 			
-			svmBatchUsersLabel = new JLabel("SVM Batch Users: ");
+			svmBatchUsersLabel = new JLabel("Batch Users: ");
 			svmBatchUsersLabel.setHorizontalAlignment(JLabel.RIGHT);
 			svmBatchUsersLabel.setForeground(Color.WHITE);
 			svmBatchUsersLabel.setFont(new Font("Arial",Font.BOLD,12));
@@ -746,6 +748,10 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		quitButton = new JButton("Quit");
 		quitButton.setFont(new Font("Arial",Font.BOLD,12));
 		quitButton.addActionListener(this);
+
+		resetExperimentButton = new JButton("Reset Experiment");
+		resetExperimentButton.setFont(new Font("Arial",Font.BOLD,12));
+		resetExperimentButton.addActionListener(this);
 		
 		// added by Sepide
 		simulationButton = new JButton("Number of Simulations");
@@ -1116,6 +1122,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		commandsPanel.add(getUsersButton);
 		commandsPanel.add(initializeButton);
 		commandsPanel.add(startButton);
+		commandsPanel.add(resetExperimentButton);
 		commandsPanel.add(quitButton);
 		commandsPanel.add(simulationButton);   // added by Sepide 
 		commandsPanel.add(changeUserSimButton);
@@ -1183,6 +1190,10 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		else if (event.getSource() == getUsersButton)
 		{
 			getUsers();
+		}
+		else if (event.getSource() == resetExperimentButton)
+		{
+			requestExperimentReset();
 		}
 		else if (event.getSource() == initializeButton)
 		{
@@ -1438,6 +1449,128 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 
 	}
 
+	private void requestExperimentReset()
+	{
+		int choice = JOptionPane.showConfirmDialog(
+				this,
+				"Reset the current experiment?\n\n"
+						+ "Running experiment agents will stop and current on-screen results will be cleared.\n"
+						+ "Datasets, model caches, and archived results will be preserved.",
+				"Reset Experiment",
+				JOptionPane.YES_NO_OPTION,
+				JOptionPane.WARNING_MESSAGE);
+		if (choice != JOptionPane.YES_OPTION)
+		{
+			return;
+		}
+
+		resetExperimentButton.setEnabled(false);
+		getUsersButton.setEnabled(false);
+		initializeButton.setEnabled(false);
+		startButton.setEnabled(false);
+		showAgentsList.setEnabled(false);
+
+		GuiEvent ge = new GuiEvent(this, myAgent.RESET_EXPERIMENT);
+		myAgent.postGuiEvent(ge);
+	}
+
+	public void resetForNewExperiment()
+	{
+		simulationNo = 0;
+		sepNum = 0;
+		listSize = 0;
+		simulationIteration = 0;
+		indexToRecommend = 0;
+		indexToRecommend2 = 0;
+		tweetLimit = 0;
+		numNodes = 1;
+		kRecommend = DEFAULT_K_REC;
+		hashTags = HASH_TAGS;
+		retweets = RE_TWEETS;
+		stopWords = STOP_WORDS;
+		algorithmRec = K_MEANS;
+		numFollowees = FOLLOWEES;
+		numFollowers = FOLLOWERS;
+		numTweetsGenerated = DEFAULT_TWEETS_GENERATED;
+		numReducers = DEFAULT_REDUCERS;
+		numMappers = DEFAULT_MAPPERS;
+		reducerChoice = ALGORITHM_CLUSTERING;
+		mapperChoice = FEATURE_EXTRACTION;
+		numArtificialTweets = DEFAULT_NUM_ARTIFICIAL_TWEETS;
+		numFollowersToGrab = 0;
+		referenceUser = DEFAULT_DATASET;
+		beginDate = BEGIN_DATE;
+		endDate = END_DATE;
+		recommendeeName = null;
+		recommendeeName2 = null;
+		nameFolloweesToGrab = null;
+		indexArray = null;
+		a = null;
+		b = null;
+		c = null;
+		names = null;
+
+		countRecServersTP = 0;
+		countRecServersTfidf = 0;
+		countRecServersAlgorithm = 0;
+		currentMaxTPTime = 0;
+		currentMaxTfidfTime = 0;
+		currentMaxAlgorithmTime = 0;
+		currentMessagePassingTime = 0;
+		currentMessagePassingCost = 0;
+		currentTiming = null;
+		timings.clear();
+		usersRec.clear();
+
+		enterDatasetField.setText(DEFAULT_DATASET);
+		numNodesField.setText("1");
+		tweetLimitField.setText("0");
+		beginDateField.setText(BEGIN_DATE);
+		endDateField.setText(END_DATE);
+		recommendationField.setText(Integer.toString(DEFAULT_K_REC));
+		svmBatchUsersField.setText("1");
+		numReducersField.setText(Integer.toString(DEFAULT_REDUCERS));
+		numMappersField.setText(Integer.toString(DEFAULT_MAPPERS));
+		algorithmSelectionBox.setSelectedIndex(K_MEANS);
+		simulationSelectionBox.setSelectedIndex(zero);
+		mapperSelectionBox.setSelectedIndex(FEATURE_EXTRACTION);
+		reducerSelectionBox.setSelectedIndex(ALGORITHM_CLUSTERING);
+		removeHashTags.setSelected(true);
+		removeRetweets.setSelected(true);
+		removeStopWords.setSelected(true);
+		simulateTweetDelay.setSelected(true);
+		fileChooser.setSelectedFile(null);
+
+		resultArea.setText("");
+		previousResultArea.setText("");
+		recommendationArea.setText("");
+		clusterResultArea.setText("");
+		userGenTweetsResultArea.setText("");
+		grabTwitterResultArea.setText("");
+		agentsList.clear();
+		showAgentsList.clearSelection();
+		showAgentsList.setEnabled(true);
+		agentsListTitle.setTitle("List of Users");
+		recommendationTitle.setTitle("Recommendations for User");
+		performanceProgressLabel.setText("Current Progress: ");
+		userGenProgressLabel.setText("Current Progress: ");
+
+		getUsersButton.setEnabled(true);
+		initializeButton.setEnabled(false);
+		startButton.setEnabled(false);
+		resetExperimentButton.setEnabled(true);
+		quitButton.setEnabled(true);
+		enableUserGenSimButtons();
+		changeCardPanel(CHANGE_TO_PERFORMANCE);
+		repaint();
+
+		JOptionPane.showMessageDialog(
+				this,
+				"Experiment reset. Select a dataset and press Get Users to begin.",
+				"New Experiment Ready",
+				JOptionPane.INFORMATION_MESSAGE);
+	}
+
 	public void initializeAgents()
 	{
 		getUsersButton.setEnabled(false);
@@ -1580,7 +1713,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		/*S agentsList.add(indexToRecommend,usersToRec);
 		agentsList.add(indexToRecommend2,usersToRec); */  // added by Sepide 
 		ArrayList<String> usersRec = new ArrayList<String>();
-		int batchCount = getSvmBatchUserCount();
+		int batchCount = getRecommendationBatchUserCount();
 		int startIndex = indexToRecommend;
 		if (startIndex < 0)
 		{
@@ -1605,6 +1738,25 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		{
 			return 1;
 		}
+		return parseBatchUserCount();
+	}
+
+	public int getRecommendationBatchUserCount()
+	{
+		if (algorithmSelectionBox == null)
+		{
+			return 1;
+		}
+		int selectedAlgorithm = algorithmSelectionBox.getSelectedIndex();
+		if (selectedAlgorithm != SVM && selectedAlgorithm != Doc2Vec)
+		{
+			return 1;
+		}
+		return parseBatchUserCount();
+	}
+
+	private int parseBatchUserCount()
+	{
 		if (svmBatchUsersField == null)
 		{
 			return 1;
@@ -1845,7 +1997,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	
 	public void helpPerformanceText()
 	{
-		JOptionPane.showMessageDialog(this,"1. Load a text file from the File Menu.\n2. Get Users after selecting a text file.\n3. Change any parameters then Initialize.\n4. Run simulation.\n5. If you want to run another simulation with different parameters, make sure to re-Initialize again before running the simulation.\n6. Loading in a new text file requires starting from step 1.", "How To Use", JOptionPane.INFORMATION_MESSAGE);
+		JOptionPane.showMessageDialog(this,"1. Load a text file from the File Menu.\n2. Get Users after selecting a text file.\n3. Change any parameters then Initialize.\n4. Run simulation.\n5. If you want to run another simulation with different parameters, make sure to re-Initialize again before running the simulation.\n6. Press Reset Experiment before beginning a brand new experiment.", "How To Use", JOptionPane.INFORMATION_MESSAGE);
 	}
 	
 	public void setTPTime(double tpTime)

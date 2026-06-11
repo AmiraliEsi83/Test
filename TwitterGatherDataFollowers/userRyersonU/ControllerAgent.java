@@ -19,6 +19,8 @@ import org.apache.commons.math3.random.RandomDataGenerator;
 
 import java.io.*;
 
+import javax.swing.SwingUtilities;
+
 import jade.lang.acl.*;
 import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
@@ -151,6 +153,7 @@ public class ControllerAgent extends GuiAgent {
 	public static final int GET_USERS = 3;
 	public static final int COLLECT_DATA =  4;
 	public static final int START_USER_GEN_SIM =  5;
+	public static final int RESET_EXPERIMENT = 6;
 	public static final int FROM_ARTIFICIAL = 3;
 	public static final int FROM_GENERATION = 2;
 	public static final int FROM_DB = 1;
@@ -205,6 +208,7 @@ public class ControllerAgent extends GuiAgent {
 
 	private boolean initialized;
 	private boolean firstRun;
+	private boolean resetPendingDatasetSelection;
 
 	private InMemoryDb localDb;
 	private InMemoryDb availableDb;
@@ -291,6 +295,7 @@ public class ControllerAgent extends GuiAgent {
 
 		initialized = false;
 		firstRun = true;
+		resetPendingDatasetSelection = false;
 		readFrom = FROM_TEXT;
 		textFile = null;
 		corpusGenFile = null;
@@ -378,6 +383,10 @@ public class ControllerAgent extends GuiAgent {
 		else if (actionToPerform == START_USER_GEN_SIM)
 		{
 			startUserGenSimulation();
+		}
+		else if (actionToPerform == RESET_EXPERIMENT)
+		{
+			resetExperiment();
 		}
 	}
 
@@ -532,9 +541,6 @@ public class ControllerAgent extends GuiAgent {
 		numTweetsGenerated = (Integer) ev.getParameter(6);
 
 		myGui.disableList();
-		long resetStartTime = System.currentTimeMillis();
-		resetTextDatasetExperimentOutputs();
-		logStageDuration("GET_USERS reset old text experiment outputs", resetStartTime, System.currentTimeMillis());
 
 		long startTime = System.currentTimeMillis();
 		logStagePoint("GET_USERS started");
@@ -758,6 +764,7 @@ public class ControllerAgent extends GuiAgent {
 			System.out.println("Load time: "+(endTime-startTime)+"ms");
 			logStageDuration("GET_USERS total", startTime, endTime);
 			System.out.println("READY TO INITIALIZE MULTI-AGENT SYSTEM");
+			resetPendingDatasetSelection = false;
 			myGui.showMessageBox("get users");
 		}
 		else
@@ -768,62 +775,129 @@ public class ControllerAgent extends GuiAgent {
 
 	} //loadUsers
 
-	private void resetTextDatasetExperimentOutputs()
+	private void resetExperiment()
 	{
-		if (readFrom != FROM_TEXT || textFile == null)
+		System.out.println("Resetting experiment");
+
+		stopExperimentContainers();
+		File selectedTextDataset = readFrom == FROM_TEXT ? textFile : null;
+		reportFailedExperimentOutputDeletes(
+				ExperimentResetFiles.resetExperimentOutputs(new File("."), selectedTextDataset));
+		clearExperimentState();
+		resetPendingDatasetSelection = true;
+		setUpWorkContainer();
+		setUpUserSimContainer();
+
+		if (myGui != null)
+		{
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					myGui.resetForNewExperiment();
+				}
+			});
+		}
+
+		System.out.println("Experiment reset complete");
+	}
+
+	private void stopExperimentContainers()
+	{
+		for (AgentController currentAgentController : new ArrayList<AgentController>(listOfAgentControllers))
+		{
+			try
+			{
+				currentAgentController.kill();
+			}
+			catch (StaleProxyException e)
+			{
+				System.err.println("Could not stop experiment agent during reset: " + e.getMessage());
+			}
+		}
+
+		stopContainer(workContainer, "workContainer");
+		stopContainer(userSimContainer, "userSimContainer");
+		workContainer = null;
+		userSimContainer = null;
+		agentController = null;
+	}
+
+	private void stopContainer(AgentContainer container, String containerName)
+	{
+		if (container == null)
 		{
 			return;
 		}
 
-		String importantStuffDirName = "important-stuff/";
-		File importantStuffDir = new File(importantStuffDirName);
-		if (!importantStuffDir.exists())
+		try
 		{
-			importantStuffDir.mkdirs();
+			container.kill();
 		}
-
-		String graphEdgesBaseName = getDatasetGraphBaseName(textFile.getName());
-		deleteIfExists(new File(importantStuffDir, graphEdgesBaseName + ".txt"));
-		deleteIfExists(new File(importantStuffDir, graphEdgesBaseName + ".gml"));
-		deleteIfExists(new File(importantStuffDir, "graph.gexf"));
-		deleteIfExists(new File(importantStuffDir, "layout.jpg"));
-		deleteIfExists(new File(importantStuffDir, "autolayout.pdf"));
-		deleteIfExists(new File(importantStuffDir, "partition.pdf"));
-		deleteIfExists(new File(importantStuffDir, "test-file-name.txt"));
-		deleteIfExists(new File(importantStuffDir, "outPutSepFolloweeResults.txt"));
-		deleteIfExists(new File(importantStuffDir, "outPutSepFollowee.txt"));
-		deleteIfExists(new File(importantStuffDir, "outPutSep.txt"));
-		deleteIfExists(new File(importantStuffDir, "outPutSepResult.txt"));
-		deleteIfExists(new File(importantStuffDir, "outputChoice.txt"));
-
-		deleteIfExists(new File("recommendations_lists.txt"));
-		deleteIfExists(new File("tweetCounts.txt"));
-
-		System.out.println("Started clean graph experiment for dataset: " + textFile.getName());
-	}
-
-	private void deleteIfExists(File file)
-	{
-		if (file.exists() && !file.delete())
+		catch (StaleProxyException e)
 		{
-			System.err.println("Could not delete old experiment file: " + file.getPath());
+			System.err.println("Could not stop " + containerName + " during reset: " + e.getMessage());
 		}
 	}
 
-	private String getDatasetGraphBaseName(String selectedFileName)
+	private void clearExperimentState()
 	{
-		String datasetName = selectedFileName;
-		int extensionIndex = datasetName.lastIndexOf('.');
-		if (extensionIndex > 0)
+		initialized = false;
+		firstRun = true;
+		algorithmRec = K_MEANS;
+		readFrom = FROM_TEXT;
+		totalTweetLimit = 0;
+		numFollowers = 0;
+		numFollowees = 0;
+		numTweetsGenerated = 0;
+		numRecAgents = 1;
+		numArtificialTweets = 0;
+		totalUsers = 0;
+		totalDocuments = 0;
+		tweetsReadCount = 0;
+		tweetDelay = 0;
+		referenceUser = REFERENCE_USER;
+		beginDate = null;
+		endDate = null;
+		textFile = null;
+		corpusGenFile = null;
+		allRecAgents = null;
+
+		localDb = new InMemoryDb();
+		availableDb = new InMemoryDb();
+
+		usersRec.clear();
+		listOfUsers.clear();
+		listOfAgents.clear();
+		listOfAgentControllers.clear();
+		allUniqueDateTimes.clear();
+		allUserFollowTweetCounts.clear();
+		currentBagWords.clear();
+		userTweetCounts.clear();
+		userFolloweeMap.clear();
+		followeeFollowerCounts.clear();
+		followeeFollowers.clear();
+		allUniqueDocTerms.clear();
+		tweetIdUser.clear();
+		tweetIdText.clear();
+		tweetIdDocumentVector.clear();
+		allTermsDocumentFreq.clear();
+		allUserDocuments.clear();
+		aggregatedUserTweets.clear();
+
+		userFollowee = null;
+		testSetUsers = null;
+		trainSetUsers = null;
+		allUserDocumentsTFIDF = null;
+		datasetFollowees = null;
+		userTfidfVector = null;
+	}
+
+	private void reportFailedExperimentOutputDeletes(List<File> failedDeletes)
+	{
+		for (File failedDelete : failedDeletes)
 		{
-			datasetName = datasetName.substring(0, extensionIndex);
+			System.err.println("Could not delete old experiment file: " + failedDelete.getPath());
 		}
-		datasetName = datasetName.replaceAll("[^A-Za-z0-9._-]", "_");
-		if (datasetName.length() == 0)
-		{
-			datasetName = "uploaded-dataset";
-		}
-		return "edges-numbers-" + datasetName;
 	}
 
 	public void startSimulation()
@@ -3580,6 +3654,11 @@ public class ControllerAgent extends GuiAgent {
 	public void setFile(File textFile)
 	{
 		this.textFile = textFile;
+		if (resetPendingDatasetSelection)
+		{
+			reportFailedExperimentOutputDeletes(
+					ExperimentResetFiles.resetDatasetOutputs(new File("."), textFile));
+		}
 		System.out.println("textFile.getName(): "+textFile.getName());
 		// myGui.appendResult("Loaded File: "+textFile.getName());
 	}
