@@ -87,6 +87,9 @@ if ! $PYTHON_CMD -c "import ipython" &> /dev/null; then
     $PYTHON_CMD -m pip install ipython
 fi
 
-javac -nowarn -cp "lib/*" -d classes TwitterGatherDataFollowers/userRyersonU/*.java
+if ! javac -nowarn -cp "lib/*" -d classes TwitterGatherDataFollowers/userRyersonU/*.java; then
+    echo "Java compilation failed. JADE was not started."
+    exit 1
+fi
 
 java $JAVA_OPTS -cp "lib/*:classes" jade.Boot $JADE_OPTS controller:TwitterGatherDataFollowers.userRyersonU.ControllerAgent
