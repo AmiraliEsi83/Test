@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Corporate registry data for **Calgary** is available through [OpenCorporates](https://opencorporates.com/) via two primary delivery mechanisms: the **REST API** (best for incremental daily/weekly sync) and **Bulk Delivery** (best for full provincial datasets). Calgary is a **city within Alberta province**, not a separate legal jurisdiction — companies are registered at the **Alberta Corporate Registry** level with jurisdiction code `ca_ab`, and Calgary-specific records are filtered by **registered address**.
+Corporate registry data for **Calgary** is available through [OpenCorporates](https://opencorporates.com/) via the **REST API** and optionally **Bulk Delivery**. Calgary is a **city within Alberta province**. Companies with Calgary registered addresses are searchable via `country_code=ca` + `registered_address=Calgary`. Note: the Alberta provincial registry (`ca_ab`) is listed in OpenCorporates but **currently returns no search results** via the API; the working dataset is primarily **federal Corporations Canada** records (`jurisdiction_code=ca`) with Calgary, AB addresses.
 
 ---
 
@@ -56,8 +56,8 @@ OpenCorporates offers two mechanisms ([Which delivery mechanism is right for you
 | Use Case | Approach |
 |----------|----------|
 | **Initial baseline** | Bulk `ca_ab` delivery → filter Calgary, **or** API alphabet sweep (see script) |
-| **Daily/weekly updates** | API with `updated_at` date filter + `jurisdiction_code=ca_ab` + `registered_address=Calgary` |
-| **Single company lookup** | `GET /v0.4/companies/ca_ab/{company_number}` |
+| **Daily/weekly updates** | API with `country_code=ca` + `registered_address=Calgary` + `updated_at` date filter |
+| **Single company lookup** | `GET /v0.4/companies/ca/{company_number}` or `ca_ab/{number}` if provincial data becomes available |
 | **Officer data** | `GET /v0.4/companies/ca_ab/{company_number}` (officers embedded) or officer search |
 
 ---
@@ -72,7 +72,8 @@ GET https://api.opencorporates.com/v0.4/companies/search
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
-| `jurisdiction_code` | `ca_ab` | Restrict to Alberta-registered entities |
+| `q` | `a`, `b`, … `z`, `0`…`9` | Required search term; script sweeps single-character prefixes |
+| `country_code` | `ca` | Restrict to Canadian entities |
 | `registered_address` | `Calgary` | Filter by city in registered address |
 | `updated_at` | `2026-06-21:` | Incremental sync — records updated since date |
 | `inactive` | `false` | Exclude dissolved/inactive (optional) |
@@ -84,7 +85,8 @@ GET https://api.opencorporates.com/v0.4/companies/search
 ```bash
 curl --header "X-API-TOKEN: YOUR_TOKEN" \
   "https://api.opencorporates.com/v0.4/companies/search\
-?jurisdiction_code=ca_ab\
+?q=ltd\
+&country_code=ca\
 &registered_address=Calgary\
 &updated_at=2026-06-27:\
 &inactive=false\
@@ -113,9 +115,9 @@ curl --header "X-API-TOKEN: YOUR_TOKEN" \
 
 1. **Calgary is address-based, not jurisdictional.** A company registered in Alberta may operate in Calgary but have a registered office elsewhere (e.g., Edmonton). Conversely, `registered_address=Calgary` may miss companies that list only a postal code. Post-sync client-side validation is recommended.
 
-2. **API search requires a `q` parameter for name-based queries.** For broad enumeration, the provided script uses an alphabet-prefix sweep (`a*`, `b*`, …) combined with jurisdiction and address filters. For incremental sync, `updated_at` filtering reduces the need for exhaustive sweeps.
+2. **API search requires a `q` parameter.** For broad enumeration, the script sweeps single-character prefixes (`a`, `b`, … `z`, `0`…`9`) combined with `country_code=ca` and `registered_address=Calgary`. Wildcard suffixes like `a*` return zero results with these filters.
 
-3. **Page limit of 100.** API pages are capped at 100. Large result sets require alphabet splitting or bulk delivery.
+3. **Alberta provincial (`ca_ab`) data gap.** `jurisdiction_code=ca_ab` currently returns zero companies via search. Calgary companies are available as federal `ca` records with Calgary, AB registered addresses. For full Alberta provincial registry coverage, bulk delivery may be required.
 
 4. **Data freshness.** OpenCorporates re-fetches Alberta data on a schedule (varies by registry). The `retrieved_at` and `updated_at` fields indicate when data was last pulled from the source.
 
@@ -135,7 +137,7 @@ curl --header "X-API-TOKEN: YOUR_TOKEN" \
                                    │
                         ┌──────────▼───────────┐
                         │  OpenCorporates API  │
-                        │  jurisdiction: ca_ab │
+                        │  country_code: ca    │
                         │  address: Calgary    │
                         │  updated_at: since   │
                         └──────────────────────┘
@@ -165,7 +167,7 @@ From the [Data Dictionary: Companies](https://knowledge.opencorporates.com/knowl
 | Field | Description |
 |-------|-------------|
 | `company_number` | Alberta Corporate Registry ID |
-| `jurisdiction_code` | `ca_ab` |
+| `jurisdiction_code` | `ca` (federal) or `ca_ab` (provincial, if available) |
 | `name` | Legal entity name |
 | `company_type` | e.g., Alberta Corporation, Trade Name |
 | `current_status` | Active, Struck, Dissolved, etc. |

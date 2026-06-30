@@ -31,7 +31,7 @@ python scripts/fetch_calgary_companies.py --mode incremental
 
 | Item | Detail |
 |------|--------|
-| **Jurisdiction** | `ca_ab` (Alberta, Canada) |
+| **Jurisdiction** | `country_code=ca` + `registered_address=Calgary` (federal Corporations Canada records with Calgary, AB addresses) |
 | **City filter** | Registered address contains "Calgary" |
 | **API version** | v0.4 (HTTPS, `X-API-TOKEN` header) |
 | **Output** | `data/output/calgary_companies_*.jsonl` and `.csv` |

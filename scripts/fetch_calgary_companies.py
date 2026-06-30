@@ -36,7 +36,11 @@ from typing import Any, Iterator
 import requests
 
 API_BASE = "https://api.opencorporates.com/v0.4"
-JURISDICTION_CODE = "ca_ab"
+# Calgary companies are searchable via country_code=ca + registered_address=Calgary.
+# The Alberta provincial registry (ca_ab) is listed in OpenCorporates but currently
+# returns no results from companies/search; federal Corporations Canada records (ca)
+# with Calgary registered addresses are available via this filter.
+COUNTRY_CODE = "ca"
 CITY_FILTER = "Calgary"
 DEFAULT_PER_PAGE = 100
 MAX_PAGE = 100
@@ -140,7 +144,7 @@ class OpenCorporatesClient:
         params: dict[str, Any] = {}
         if sparse:
             params["sparse"] = "true"
-        return self._request(f"companies/{JURISDICTION_CODE}/{company_number}", params)
+        return self._request(f"companies/ca_ab/{company_number}", params)
 
     def iter_search_pages(self, params: dict[str, Any]) -> Iterator[dict[str, Any]]:
         page = 1
@@ -169,9 +173,9 @@ def is_calgary_address(company: dict[str, Any]) -> bool:
     calgary_in_address = "calgary" in locality or "calgary" in full
     alberta_in_address = (
         "alberta" in region
-        or " ab" in full
-        or full.endswith(", ab")
-        or region in ("ab", "alberta")
+        or region == "ab"
+        or ", ab" in full
+        or full.endswith(" ab")
         or not region
     )
     return calgary_in_address and alberta_in_address
@@ -208,20 +212,16 @@ def build_search_params(
     prefix: str | None = None,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {
-        "jurisdiction_code": JURISDICTION_CODE,
+        "country_code": COUNTRY_CODE,
         "registered_address": CITY_FILTER,
         "order": "updated_at",
         "inactive": "false",
+        "q": prefix or "a",
     }
-
-    if prefix:
-        params["q"] = f"{prefix}*"
 
     if mode == "incremental" and state.last_sync_at:
         sync_date = state.last_sync_at[:10]
         params["updated_at"] = f"{sync_date}:"
-    elif mode == "full" and prefix is None:
-        params["q"] = "a*"
 
     return params
 
@@ -234,7 +234,7 @@ def fetch_companies(
     seen: set[str] = set()
     records: list[dict[str, Any]] = []
 
-    prefixes = ALPHABET_PREFIXES if mode == "full" else [None]
+    prefixes = ALPHABET_PREFIXES
 
     for prefix in prefixes:
         params = build_search_params(mode, state, prefix)
@@ -358,7 +358,7 @@ def main() -> int:
         logging.info("Dry run complete — API token is valid.")
         return 0
 
-    logging.info("Starting %s sync for Calgary, Alberta (ca_ab)...", args.mode)
+    logging.info("Starting %s sync for Calgary, Alberta (country_code=%s)...", args.mode, COUNTRY_CODE)
     records = fetch_companies(client, args.mode, state)
 
     run_id = run_started.strftime("%Y%m%d_%H%M%S")
