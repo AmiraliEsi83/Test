@@ -72,8 +72,8 @@ public class OrganizingAgent extends Agent
 	private static final int SVM = 2;
 	private static final int MLP = 3;
 	public static final int Doc2Vec = 4;             // added by Sepide
-    public static final int CommonNeighbors = 5;        // added by Sepide	
-	public static final int K_MEANSEUCLIDEAN = 6;   // added by Sepide 
+    public static final int CommonNeighbors = 5;        // added by Sepide
+	public static final int K_MEANSEUCLIDEAN = 6;   // added by Sepide
 	private static final boolean WRITE_MERGE_DEBUG_FILES = false;
 	
 	private ArrayList<String> global_interestlistData = new ArrayList<String>();		
@@ -122,6 +122,8 @@ public class OrganizingAgent extends Agent
 	private List<MultiLayerPerceptron> listMLP;
 	private List<NeuralNetwork> listNN;
 	private int averageWeightCount;
+	private List<String> sparseMlpModelPaths;
+	private int sparseAverageWeightCount;
 
 	protected void setup() 
 	{
@@ -142,6 +144,8 @@ public class OrganizingAgent extends Agent
 			listMLP = new ArrayList<MultiLayerPerceptron>();
 			listNN = new ArrayList<NeuralNetwork>();
 			averageWeightCount = 0;
+			sparseMlpModelPaths = new ArrayList<String>();
+			sparseAverageWeightCount = 0;
 		}
 			
 
@@ -184,10 +188,10 @@ public class OrganizingAgent extends Agent
 
 			InitializeBehaviour initialBehaviour = new InitializeBehaviour(this);
 			addBehaviour(initialBehaviour);
-			
+
 			setQueueSize(0);
 		}
-		
+
 		private void setExpectedRecommenderAgents()
 		{
 			allRecAgents = new AID[numNodes];
@@ -196,7 +200,7 @@ public class OrganizingAgent extends Agent
 				allRecAgents[i] = new AID("Recommender-ServiceAgent" + (i + 1), AID.ISLOCALNAME);
 			}
 		}
-	
+
 		private class InitializeBehaviour extends CyclicBehaviour {
 		private static final long serialVersionUID = 1L;
 
@@ -249,7 +253,7 @@ public class OrganizingAgent extends Agent
 //					}
 					
 					setExpectedRecommenderAgents();
-						
+
 					ACLMessage msg2 = new ACLMessage( ACLMessage.REQUEST );
 					for(int i=0; i<allRecAgents.length; i++)
 					{
@@ -341,20 +345,20 @@ public class OrganizingAgent extends Agent
 						try {
 							FileWriter writer = new FileWriter("finalScores_Not_Normalized.txt", true); //append
 							BufferedWriter bufferedWriter = new BufferedWriter(writer);
-							
+
 							for (String userRec: finalScores.keySet())
 							{
 								bufferedWriter.write(userRec+" Scores: [\t");
-								
+
 								TreeMap<String,Double> otherUserScores = finalScores.get(userRec);
-								
+
 								for (String otherUser: otherUserScores.keySet())
 								{
 									double oldScore = otherUserScores.get(otherUser);
-									
-									bufferedWriter.write(otherUser+":"+oldScore+"\t");				
+
+									bufferedWriter.write(otherUser+":"+oldScore+"\t");
 								}
-								
+
 							}
 							bufferedWriter.write("]");
 							bufferedWriter.newLine();
@@ -414,7 +418,7 @@ public class OrganizingAgent extends Agent
 			}
 
 			//Message from user agent to get scores
-			if ("Get Score List".equals(msg.getOntology()))		
+			if ("Get Score List".equals(msg.getOntology()))
 			{
 				usersRequestedCount++;
 
@@ -481,7 +485,46 @@ public class OrganizingAgent extends Agent
 				queryDoneMsg.setOntology("Querying Done from Organizing Agent");
 				send(queryDoneMsg);
 			}
-			
+
+			if ("Average Sparse MLP".equals(msg.getOntology()))
+			{
+				sparseAverageWeightCount++;
+				if (sparseMlpModelPaths == null)
+				{
+					sparseMlpModelPaths = new ArrayList<String>();
+				}
+				sparseMlpModelPaths.add(msg.getContent());
+				System.out.println(getLocalName()+" received Average Sparse MLP sparseAverageWeightCount: "+sparseAverageWeightCount);
+				if (sparseAverageWeightCount == allRecAgents.length)
+				{
+					String nnDirName = "Stored_NN/";
+					File nnDir = new File(nnDirName);
+					if (!nnDir.exists())
+					{
+						nnDir.mkdirs();
+					}
+					String averagedSparseFileName = nnDirName+"averaged_sparse_MLP_weights.ser";
+					ACLMessage averagedMsg = new ACLMessage(ACLMessage.INFORM);
+					for(int i=0; i<allRecAgents.length; i++)
+					{
+						averagedMsg.addReceiver(allRecAgents[i]);
+					}
+					try
+					{
+						SparseFederatedMlpModelSupport.saveAveragedModel(sparseMlpModelPaths, averagedSparseFileName);
+						averagedMsg.setOntology("Averaged Sparse MLP Complete");
+						averagedMsg.setContent(averagedSparseFileName);
+					}
+					catch (Exception ex)
+					{
+						ex.printStackTrace();
+						averagedMsg.setOntology("Averaged Sparse MLP Failed");
+						averagedMsg.setContent(ex.getClass().getSimpleName()+": "+ex.getMessage());
+					}
+					send(averagedMsg);
+				}
+			}
+
 			//Message from multiple rec agents to average weight for general MLP
 						
 			if ("Average Weights MLP".equals(msg.getOntology()))

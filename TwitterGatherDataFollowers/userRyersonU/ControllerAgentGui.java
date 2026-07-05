@@ -76,6 +76,8 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	public int listSize;
 
 	public JComboBox<String> algorithmSelectionBox;
+	private JButton mlpSettingsButton;
+	private AlgorithmParameterSettings algorithmParameterSettings = AlgorithmParameterSettings.defaults();
 	private JComboBox<String> mapperSelectionBox;
 	private JComboBox<String> reducerSelectionBox;
 	public JComboBox<String> simulationSelectionBox;             // added by Sepide
@@ -415,7 +417,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 			recommendationField.setText("3");
 			recommendationField.setHorizontalAlignment(JTextField.CENTER);
 			recommendationField.addActionListener(new RecommendationListener());
-			
+
 			svmBatchUsersLabel = new JLabel("Batch Users: ");
 			svmBatchUsersLabel.setHorizontalAlignment(JLabel.RIGHT);
 			svmBatchUsersLabel.setForeground(Color.WHITE);
@@ -449,8 +451,17 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		algorithmSelectionBox.setSelectedIndex(K_MEANS);
 		((JLabel)algorithmSelectionBox.getRenderer()).setHorizontalAlignment(SwingConstants.CENTER);
 		algorithmSelectionBox.addActionListener(new AlgorithmSelectionListener());
-		
-		String[] simulationSelection = {"0", "1", "2", "3", "4", "5"};       // added by Sepide 
+		mlpSettingsButton = new JButton("MLP Settings");
+		mlpSettingsButton.setEnabled(false);
+		mlpSettingsButton.setToolTipText("Available when MLP is selected.");
+		mlpSettingsButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent event) {
+				showMlpSettingsDialog();
+			}
+		});
+		refreshMlpSettingsButton();
+
+		String[] simulationSelection = {"0", "1", "2", "3", "4", "5"};       // added by Sepide
 		simulationSelectionBox = new JComboBox<String>(simulationSelection);       // added by Sepide 
 		simulationSelectionBox.setSelectedIndex(zero);          // added by Sepide 
 		((JLabel)simulationSelectionBox.getRenderer()).setHorizontalAlignment(SwingConstants.CENTER);     // added by Sepide
@@ -469,12 +480,48 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		reducerSelectionBox.addActionListener(new ReducerSelectionListener());
 	}
 
+	public AlgorithmParameterSettings getAlgorithmParameterSettings()
+	{
+		return algorithmParameterSettings.copy();
+	}
+
+	private void showMlpSettingsDialog()
+	{
+		AlgorithmParameterSettings updated = MlpSettingsDialog.showDialog(this, algorithmParameterSettings);
+		if (updated != null)
+		{
+			algorithmParameterSettings = updated.copy();
+			refreshMlpSettingsButton();
+		}
+	}
+
+	private void refreshMlpSettingsButton()
+	{
+		if (mlpSettingsButton == null)
+		{
+			return;
+		}
+		boolean isMlp = algorithmSelectionBox != null && algorithmSelectionBox.getSelectedIndex() == MLP;
+		mlpSettingsButton.setEnabled(isMlp);
+		if (isMlp)
+		{
+			mlpSettingsButton.setText("MLP Settings (" + algorithmParameterSettings.profileLabel() + ")");
+			mlpSettingsButton.setToolTipText(algorithmParameterSettings.summaryForMlp());
+		}
+		else
+		{
+			mlpSettingsButton.setText("MLP Settings");
+			mlpSettingsButton.setToolTipText("Available when MLP is selected.");
+		}
+	}
+
 	class AlgorithmSelectionListener implements ActionListener
 	{
 		public void actionPerformed(ActionEvent event)
 		{
 			System.out.println("algorithmSelectionBox.getSelectedIndex(): "+ algorithmSelectionBox.getSelectedIndex());
 			algorithmRec = algorithmSelectionBox.getSelectedIndex();
+			refreshMlpSettingsButton();
 		}
 	}
 
@@ -948,14 +995,19 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		resultsPanel.setOpaque(false);
 		JPanel inputDbPanel = new JPanel();
 		inputDbPanel.setOpaque(false);
-		JPanel commandsPanel = new JPanel(new GridLayout(2,2));
+		JPanel commandsPanel = new JPanel();
+		commandsPanel.setLayout(new BoxLayout(commandsPanel, BoxLayout.Y_AXIS));
 		commandsPanel.setOpaque(false);
+		JPanel primaryCommandsPanel = new JPanel(new GridLayout(2,3));
+		primaryCommandsPanel.setOpaque(false);
+		JPanel resetCommandsPanel = new JPanel(new GridLayout(1,1));
+		resetCommandsPanel.setOpaque(false);
 		JPanel labNamePanel = new JPanel();
 		labNamePanel.setOpaque(false);
 		JPanel labNamePanel2 = new JPanel();
 		labNamePanel2.setLayout(new BoxLayout(labNamePanel2, BoxLayout.Y_AXIS));
 		labNamePanel2.setOpaque(false);
-		JPanel initializationsPanel = new JPanel(new GridLayout(4,2));        // (3,2) changed to (4,2) by Sepide
+		JPanel initializationsPanel = new JPanel(new GridLayout(5,4));        // keep label/field pairs aligned with v3.2 controls
 		initializationsPanel.setOpaque(false);
 		JPanel textProcessingPanel = new JPanel();
 		textProcessingPanel.setOpaque(false);
@@ -1010,7 +1062,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		initializationTitle.setTitleJustification(TitledBorder.CENTER);
 		initializationTitle.setTitleFont(new Font("Arial",Font.BOLD,20));
 		initializationTitle.setTitleColor(Color.WHITE);
-		labNameTitle = BorderFactory.createTitledBorder(empty,"DSMP Lab");
+		labNameTitle = BorderFactory.createTitledBorder(empty,"DSMP Lab v3.2");
 		labNameTitle.setTitleJustification(TitledBorder.CENTER);
 		labNameTitle.setTitleFont(new Font("Arial",Font.PLAIN,20));
 		labNameTitle.setTitleColor(Color.WHITE);
@@ -1104,14 +1156,18 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		initializationsPanel.add(beginDateField);
 		initializationsPanel.add(endDateLabel);
 		initializationsPanel.add(endDateField);
-			initializationsPanel.add(recommendationLabel);
-			initializationsPanel.add(recommendationField);
-			initializationsPanel.add(svmBatchUsersLabel);
-			initializationsPanel.add(svmBatchUsersField);
-			initializationsPanel.add(algorithmLabel);
-			initializationsPanel.add(algorithmSelectionBox);
+		initializationsPanel.add(recommendationLabel);
+		initializationsPanel.add(recommendationField);
+		initializationsPanel.add(algorithmLabel);
+		initializationsPanel.add(algorithmSelectionBox);
+		initializationsPanel.add(new JLabel("MLP Settings: "));
+		initializationsPanel.add(mlpSettingsButton);
 		initializationsPanel.add(simulationNumber);      // added by Sepide
 		initializationsPanel.add(simulationSelectionBox);        // added by Sepide
+		initializationsPanel.add(svmBatchUsersLabel);
+		initializationsPanel.add(svmBatchUsersField);
+		initializationsPanel.add(new JLabel(""));
+		initializationsPanel.add(new JLabel(""));
 		initializationsPanel.setBorder(initializationTitle);
 
 		textProcessingPanel.add(removeHashTags);
@@ -1119,13 +1175,15 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		textProcessingPanel.add(removeStopWords);
 		textProcessingPanel.add(simulateTweetDelay);
 		
-		commandsPanel.add(getUsersButton);
-		commandsPanel.add(initializeButton);
-		commandsPanel.add(startButton);
-		commandsPanel.add(resetExperimentButton);
-		commandsPanel.add(quitButton);
-		commandsPanel.add(simulationButton);   // added by Sepide 
-		commandsPanel.add(changeUserSimButton);
+		primaryCommandsPanel.add(getUsersButton);
+		primaryCommandsPanel.add(initializeButton);
+		primaryCommandsPanel.add(startButton);
+		primaryCommandsPanel.add(quitButton);
+		primaryCommandsPanel.add(simulationButton);   // added by Sepide
+		primaryCommandsPanel.add(changeUserSimButton);
+		resetCommandsPanel.add(resetExperimentButton);
+		commandsPanel.add(primaryCommandsPanel);
+		commandsPanel.add(resetCommandsPanel);
 		commandsPanel.setBorder(commandsTitle);
 
 		userGenOptionsPanel.add(helpUserSimButton);
@@ -1521,6 +1579,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		currentTiming = null;
 		timings.clear();
 		usersRec.clear();
+		algorithmParameterSettings = AlgorithmParameterSettings.defaults();
 
 		enterDatasetField.setText(DEFAULT_DATASET);
 		numNodesField.setText("1");
@@ -1539,6 +1598,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		removeRetweets.setSelected(true);
 		removeStopWords.setSelected(true);
 		simulateTweetDelay.setSelected(true);
+		refreshMlpSettingsButton();
 		fileChooser.setSelectedFile(null);
 
 		resultArea.setText("");
@@ -1729,7 +1789,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		//S usersRec.add(userToRecommend2);  // added by Sepide
 		System.out.println("controllerGUI usersRec: "+usersRec);
 		return usersRec;
-		
+
 	}
 
 	public int getSvmBatchUserCount()
@@ -1781,7 +1841,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		return simulateTweetDelay == null || simulateTweetDelay.isSelected();
 	}
 
-	public void shutDown() 
+	public void shutDown()
 	{
 		System.exit(0);
 		GuiEvent ge = new GuiEvent(this, myAgent.QUIT);
