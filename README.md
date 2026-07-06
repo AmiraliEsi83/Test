@@ -1,5 +1,8 @@
 # CCPS 844 Data Mining Project
 
+**Author:** Amir Ali Eslami  
+**Student Number:** 501200510
+
 Classification and regression analysis project for CCPS 844 Data Mining course.
 
 ## Project Overview
