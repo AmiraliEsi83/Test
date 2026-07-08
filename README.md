@@ -45,6 +45,37 @@ The notebook covers all 12 mandatory project steps:
 11. Train/test split & algorithm comparison (3 scenarios)
 12. Conclusions
 
+## Export to PDF (recommended)
+
+Jupyter's built-in **Download as PDF** requires Pandoc + LaTeX and often fails. Use the included export script instead — it produces a clean, submission-ready PDF.
+
+```bash
+pip install nbconvert playwright
+playwright install chromium
+python export_to_pdf.py
+```
+
+This creates:
+- `CCPS844_AmirAliEslami_501200510.pdf` — submit this PDF
+- `CCPS844_Data_Mining_Project.html` — styled HTML backup
+
+### Alternative: enable Jupyter PDF export on Mac
+
+If you prefer Jupyter's native PDF export:
+
+```bash
+brew install pandoc
+brew install --cask basictex
+```
+
+Restart Jupyter, then use **File → Download as → PDF**.
+
 ## Submission
 
-Export the notebook to HTML (`File → Download as → HTML`) and convert to PDF for submission along with the `.ipynb` file and `data/` folder.
+Submit these files **separately** (do not zip):
+
+1. `CCPS844_AmirAliEslami_501200510.pdf`
+2. `CCPS844_Data_Mining_Project.ipynb`
+3. `data/heart_disease.csv`
+4. `data/auto_mpg.csv`
+5. `requirements.txt` (optional)
