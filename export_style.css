@@ -1,0 +1,131 @@
+/* Clean PDF-friendly styling for CCPS 844 notebook export */
+@page {
+  size: A4;
+  margin: 18mm 15mm;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 8px;
+}
+
+#notebook,
+#notebook-container,
+div.cell {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+div.cell {
+  border: none;
+  margin-bottom: 1.2em;
+  page-break-inside: avoid;
+}
+
+div.input_area,
+div.prompt,
+.jp-InputPrompt,
+.jp-OutputPrompt {
+  display: none !important;
+}
+
+div.output_area {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+
+h1, h2, h3, h4 {
+  color: #111827;
+  page-break-after: avoid;
+}
+
+h1 {
+  font-size: 22pt;
+  border-bottom: 2px solid #2563eb;
+  padding-bottom: 0.25em;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 16pt;
+  margin-top: 1.4em;
+  color: #1d4ed8;
+}
+
+h3 {
+  font-size: 13pt;
+}
+
+p, li {
+  orphans: 3;
+  widows: 3;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  font-size: 10pt;
+}
+
+th, td {
+  border: 1px solid #d1d5db;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+th {
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 0.8em auto;
+  page-break-inside: avoid;
+}
+
+.dataframe {
+  font-size: 9pt;
+}
+
+pre, code {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9pt;
+}
+
+.highlight,
+.output_text,
+.output_stderr {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 1.5em 0;
+}
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+blockquote {
+  border-left: 4px solid #93c5fd;
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  background: #f8fafc;
+}
