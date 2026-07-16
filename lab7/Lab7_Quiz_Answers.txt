@@ -1,0 +1,69 @@
+Lab 7 — Quiz Metrics Answers
+=============================
+Name: Amir Ali Eslami
+Student Number: 501200510
+Course: CCPS 844 Data Mining
+
+---------------------------------------------------------------------------
+I. MAE, MSE, RMSE (House Price Index)
+---------------------------------------------------------------------------
+Absolute errors: 40, 40, 57, 31, 54, 9, 56, 62, 50, 27, 33
+Sum |e| = 459,  n = 11
+Sum e^2 = 21705
+
+MAE  = 459 / 11     = 41.7273
+MSE  = 21705 / 11   = 1973.1818
+RMSE = sqrt(MSE)    = 44.4205
+
+Answers:
+  MAE  = 41.7273
+  MSE  = 1973.1818
+  RMSE = 44.4205
+
+---------------------------------------------------------------------------
+II. Classification Metrics (Positive class = M, Negative class = W)
+---------------------------------------------------------------------------
+Outcomes: FN, TP, TN, TP, FP, TN, TN, TP, FN, TN
+
+TP = 3
+FP = 1
+TN = 4
+FN = 2
+
+Accuracy / Classification Accuracy = (3+4)/10 = 0.70
+Classification Error               = (1+2)/10 = 0.30
+Precision                          = 3/(3+1)  = 0.75
+Recall                             = 3/(3+2)  = 0.60
+Sensitivity                        = 0.60
+Specificity                        = 4/(4+1)  = 0.80
+False Positive Rate                = 1/(1+4)  = 0.20
+
+Answers:
+  TP = 3, FP = 1, TN = 4, FN = 2
+  Accuracy = 0.70
+  Precision = 0.75
+  Recall = 0.60
+  Classification Accuracy = 0.70
+  Classification Error = 0.30
+  Sensitivity = 0.60
+  Specificity = 0.80
+  False Positive Rate = 0.20
+
+---------------------------------------------------------------------------
+III. Decrease Threshold to Increase Sensitivity
+---------------------------------------------------------------------------
+Probabilities      = [0.45896027, 0.17065156, 0.49889026, 0.51341541, 0.39678612, 0.67189438]
+Default (0.5)      = [0, 0, 0, 1, 0, 1]
+Chosen threshold   = 0.3
+
+New_Predicted_Response = [1, 0, 1, 1, 1, 1]
+
+Reason: A lower threshold predicts the disease class more often, which
+increases true positives and therefore sensitivity.
+
+---------------------------------------------------------------------------
+Practical confusion matrix (diabetes, n=192) — for reference
+---------------------------------------------------------------------------
+TN=118, FP=12, FN=47, TP=15
+Accuracy=0.6927, Error=0.3073, Sensitivity=0.2419,
+Specificity=0.9077, FPR=0.0923, Precision=0.5556
