@@ -6,9 +6,10 @@ Final written user guide for the DSMP Social Network Simulator **v2.6**, prepare
 
 | Document | Audience | Path |
 |----------|----------|------|
-| **Full User Guide (final)** | Anyone using DSMP v2.6 | [`docs/DSMP_User_Guide_v2.6.md`](docs/DSMP_User_Guide_v2.6.md) |
+| **Full User Guide (PDF)** | Best version to email / share | [`docs/DSMP_User_Guide_v2.6.pdf`](docs/DSMP_User_Guide_v2.6.pdf) |
+| **Full User Guide (Markdown)** | Anyone using DSMP v2.6 | [`docs/DSMP_User_Guide_v2.6.md`](docs/DSMP_User_Guide_v2.6.md) |
 | **Tester Quick Start** | Maha / Aneela and other testers | [`docs/DSMP_v2.6_Tester_Quickstart.md`](docs/DSMP_v2.6_Tester_Quickstart.md) |
-| **Printable HTML** | Email / print / share | [`docs/DSMP_User_Guide_v2.6.html`](docs/DSMP_User_Guide_v2.6.html) |
+| **Printable HTML** | Browser print / share | [`docs/DSMP_User_Guide_v2.6.html`](docs/DSMP_User_Guide_v2.6.html) |
 | Screenshots | Figure pack used by the guide | [`docs/figures/`](docs/figures/) |
 
 ## Software repository
