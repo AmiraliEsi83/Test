@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DSMP Social Network Simulator — User Guide (v2.6)</title>
+<style>
+  :root {
+    --ink: #1a1f24;
+    --muted: #4b5563;
+    --line: #d7dde5;
+    --bg: #f7f9fc;
+    --card: #ffffff;
+    --accent: #0b6e99;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: linear-gradient(180deg, #eef5fa 0%, var(--bg) 220px);
+    line-height: 1.55;
+  }
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    background: var(--card);
+    box-shadow: 0 10px 40px rgba(15, 35, 55, 0.08);
+  }
+  h1, h2, h3 { color: #0f2f44; line-height: 1.25; }
+  h1 { font-size: 1.9rem; margin-top: 0; border-bottom: 3px solid var(--accent); padding-bottom: 0.4rem; }
+  h2 { margin-top: 2.2rem; border-bottom: 1px solid var(--line); padding-bottom: 0.25rem; }
+  h3 { margin-top: 1.4rem; }
+  p, li { color: var(--ink); }
+  a { color: var(--accent); }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.92em;
+  }
+  code {
+    background: #eef3f8;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: #0f2433;
+    color: #e8f1f7;
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.4rem;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    vertical-align: top;
+    text-align: left;
+  }
+  th { background: #e8f2f8; }
+  img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin: 0.6rem 0 1.2rem;
+    display: block;
+  }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
+  .meta {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+  @media print {
+    body { background: white; }
+    main { box-shadow: none; max-width: none; padding: 0; }
+    a { color: inherit; text-decoration: none; }
+    pre { white-space: pre-wrap; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1 id="dsmp-social-network-simulator-user-guide-v26">DSMP Social Network Simulator — User Guide (v2.6)</h1>
+<p><strong>Document version:</strong> Final (for testing)<br />
+<strong>Software:</strong> DSMP Social Network Simulator<br />
+<strong>Branch / release target:</strong> <a href="https://github.com/aabhari/SocialNetworkSimulatorV3.1/tree/v2.6"><code>v2.6</code></a><br />
+<strong>Repository:</strong> https://github.com/aabhari/SocialNetworkSimulatorV3.1<br />
+<strong>Lab:</strong> DSMP Lab, Toronto Metropolitan University<br />
+<strong>Director:</strong> Dr. Abdolreza Abhari<br />
+<strong>Prepared for:</strong> testers and new users (including users with no prior DSMP experience)</p>
+<hr />
+<h2 id="1-what-this-software-is">1. What this software is</h2>
+<p>The DSMP Social Network Simulator is a Java multi-agent tool with a simple Swing UI. Researchers use it to:</p>
+<ol>
+<li>Load a social-network style corpus (Twitter, retail, journals, or custom data converted into DSMP format)</li>
+<li>Run recommendation / ML algorithms (Similarity, K-Means, SVM, <strong>MLP</strong>, Doc2Vec, Common-Neighbors, and others)</li>
+<li>Measure accuracy and timing across one or more processing nodes</li>
+</ol>
+<p>The simulator always works on one shared text format: the <strong>Twitter follower–followee (DSMP) six-column format</strong>. Any new dataset must be converted into that format before Performance Measurement.</p>
+<hr />
+<h2 id="2-what-is-new-in-v26-read-this-first">2. What is new in v2.6 (read this first)</h2>
+<p>Compared with earlier builds (including the fixed Neuroph MLP on <code>main</code> / older releases), <strong>v2.6</strong> adds the features testers are expected to exercise:</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>What changed in v2.6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dataset Import Lab</strong></td>
+<td>New GUI tool to convert raw UCI Online Retail, journals, tweets, or custom files into DSMP six-column text</td>
+</tr>
+<tr>
+<td><strong>Class balancing</strong></td>
+<td>Optional imbalance diagnosis and balancing during import</td>
+</tr>
+<tr>
+<td><strong>MLP Settings</strong></td>
+<td>Configurable hidden layers, neurons, learning rate, max error, max iterations</td>
+</tr>
+<tr>
+<td><strong>Two MLP engines</strong></td>
+<td><strong>Legacy Neuroph MLP</strong> (default, same behavior as v2.5) and <strong>Sparse Federated MLP (experimental)</strong></td>
+</tr>
+<tr>
+<td><strong>MLP Auto Search</strong></td>
+<td>Automatic hyperparameter search over a loaded DSMP dataset</td>
+</tr>
+<tr>
+<td><strong>Retail / Sparse MLP fixes</strong></td>
+<td>More stable training/evaluation and accuracy reporting for large sparse TF‑IDF cases</td>
+</tr>
+<tr>
+<td><strong>Startup / import robustness</strong></td>
+<td>Safer text import and compile-before-run startup scripts</td>
+</tr>
+</tbody>
+</table>
+<p>If you only need one testing priority from the lab emails: <strong>test MLP thoroughly</strong>, and make sure anyone can <strong>import a new dataset into the common Twitter follower–followee format</strong>.</p>
+<hr />
+<h2 id="3-prerequisites">3. Prerequisites</h2>
+<p>Install and put these tools on your system <code>PATH</code>:</p>
+<ol>
+<li><strong>Git</strong></li>
+<li><strong>Python 3.9 or 3.10</strong> (exactly one of these; other versions are not supported by <code>build.py</code>)</li>
+<li><strong>JDK 8 or higher</strong> (<code>java</code> and <code>javac</code>) — JDK 8 preferred</li>
+<li><strong>Apache Maven</strong> (<code>mvn</code>)</li>
+</ol>
+<p>Quick checks:</p>
+<pre><code class="language-bash">git --version
+python3.9 --version   # or: python3.10 --version   /   py -3.9 --version
+java -version
+javac -version
+mvn -version
+</code></pre>
+<hr />
+<h2 id="4-install-and-start-the-simulator">4. Install and start the simulator</h2>
+<h3 id="step-41-get-the-v26-code">Step 4.1 — Get the v2.6 code</h3>
+<pre><code class="language-bash">git clone https://github.com/aabhari/SocialNetworkSimulatorV3.1.git
+cd SocialNetworkSimulatorV3.1
+git checkout v2.6
+</code></pre>
+<p>Confirm you are on v2.6:</p>
+<pre><code class="language-bash">git branch --show-current
+# expect: v2.6
+</code></pre>
+<h3 id="step-42-first-time-setup">Step 4.2 — First-time setup</h3>
+<p>Windows:</p>
+<pre><code class="language-bash">py -3.9 build.py setup
+</code></pre>
+<p>Linux / macOS:</p>
+<pre><code class="language-bash">python3.9 build.py setup
+</code></pre>
+<p>This creates <code>.venv</code>, installs Python packages, downloads Java libraries into <code>lib/</code>, and compiles Java sources into <code>classes/</code>.</p>
+<h3 id="step-43-run">Step 4.3 — Run</h3>
+<p>Windows:</p>
+<pre><code class="language-bash">py -3.9 build.py run
+</code></pre>
+<p>Linux / macOS:</p>
+<pre><code class="language-bash">python3.9 build.py run
+</code></pre>
+<p>The main window title is similar to:</p>
+<p><strong>Multi-Agent System Simulator for Distributed Recommender System</strong></p>
+<p>There are two modes:</p>
+<ol>
+<li><strong>Twitter User Generation Simulation</strong> (opens first)</li>
+<li><strong>Performance Measurement of Simulated Recommender System</strong> (switch using the Performance Measurement button)</li>
+</ol>
+<hr />
+<h2 id="5-the-dsmp-data-format-most-important-concept">5. The DSMP data format (most important concept)</h2>
+<p>Every Performance Measurement run expects a <strong>TAB-delimited <code>.txt</code> file with exactly 6 columns and no header row</strong>:</p>
+<pre><code class="language-text">followee&lt;TAB&gt;postId&lt;TAB&gt;yyyy-MM-dd[ HH:mm[:ss]]&lt;TAB&gt;userId&lt;TAB&gt;userName&lt;TAB&gt;text
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Name</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>followee</strong> / reference user</td>
+<td>Class / recommendation target (the account or category being “followed”)</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>postId</strong></td>
+<td>Numeric tweet / invoice / paper id</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>date</strong></td>
+<td>Prefer <code>yyyy-MM-dd</code>; time is optional</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>userId</strong></td>
+<td>Numeric user / customer / author id</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>userName</strong></td>
+<td>Follower / customer / author name (the entity that produced the text)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>text</strong></td>
+<td>Tweet text, product description, paper title, etc.</td>
+</tr>
+</tbody>
+</table>
+<p>This is the <strong>Twitter follower–followee format</strong> used throughout DSMP. Retail and journal corpora are rewritten into this same shape so the recommender UI does not change.</p>
+<h3 id="example-a-twitter-corpus-datasetreduced_14ktxt">Example A — Twitter corpus (<code>Dataset/Reduced_14k.txt</code>)</h3>
+<pre><code class="language-text">RyersonU    708526261514141696  2016-03-12 00:33:19 1   AHKru   release force strong captainamericacivilwar
+RyersonU    708357883197595649  2016-03-11 13:24:14 1   AHKru   will watching will loving dannymcbride waltongoggins viceprincipals hbo ew ew
+</code></pre>
+<p>Here <code>AHKru</code> is a follower and <code>RyersonU</code> is the followee.</p>
+<h3 id="example-b-retail-already-converted-datasetretailtxt">Example B — Retail already converted (<code>Dataset/Retail.txt</code>)</h3>
+<pre><code class="language-text">Sobeys  22153538971 2010-12-15 11:39    12865   FrankWarren ANGEL DECORATION STARS DRESS
+Sobeys  37449539330 2010-12-17 9:38 12370   JamieBranch CERAMIC CAKE STAND HANGING CAKES
+</code></pre>
+<p>Here the “followee” is a store/category label (<code>Sobeys</code>, <code>Metro</code>, <code>Loblaws</code>, <code>Wal-Mart</code>) and the “follower” is a customer name. Product descriptions become the tweet text.</p>
+<h3 id="example-c-journals-datasetdataset-journals-authors-titles-august6txt">Example C — Journals (<code>Dataset/Dataset-Journals-Authors-Titles-August6.txt</code>)</h3>
+<pre><code class="language-text">AmericanHeartJournal    4361535 1972-12-31  67609887    OverallJamesC   intrauterine virus infections congenital heart disease
+</code></pre>
+<p>Here the journal/venue is the followee and the author is the user.</p>
+<h3 id="ready-to-use-common-corpora-in-the-repository">Ready-to-use common corpora in the repository</h3>
+<p>Put shared experiment files under the project <code>Dataset/</code> folder (the lab’s common dataset location). Useful starter files already present:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dataset/Reduced_14k.txt</code></td>
+<td>Small Twitter smoke test</td>
+</tr>
+<tr>
+<td><code>Dataset/Homophily/Homophily_Set_SMALL.txt</code> (if present) / Homophily folders</td>
+<td>Tiny multi-followee demos</td>
+</tr>
+<tr>
+<td><code>Dataset/Retail.txt</code></td>
+<td>Pre-converted UCI retail (~20k rows) for MLP/SVM</td>
+</tr>
+<tr>
+<td><code>Dataset/Reduced_57k.txt</code>, <code>Dataset/Reduced_94k.txt</code></td>
+<td>Larger Twitter sets</td>
+</tr>
+<tr>
+<td><code>Dataset/Dataset-Journals-Authors-Titles-August6.txt</code></td>
+<td>Journal recommendation experiments</td>
+</tr>
+<tr>
+<td><code>TestedDataset/</code> and <code>important-stuff/</code></td>
+<td>Extra copies / test splits / name–number maps</td>
+</tr>
+</tbody>
+</table>
+<p>If George or others request a large retail file (for example a 100k retail conversion), place the converted DSMP <code>.txt</code> into <code>Dataset/</code> so everyone uses the same common file.</p>
+<hr />
+<h2 id="6-convert-a-new-dataset-into-dsmp-format-dataset-import-lab">6. Convert a new dataset into DSMP format (Dataset Import Lab)</h2>
+<p>This is the section that was missing from earlier notes. Use it whenever you have a <strong>new</strong> raw dataset (especially UCI Online Retail) that is not already in follower–followee format.</p>
+<h3 id="step-61-open-dataset-import-lab">Step 6.1 — Open Dataset Import Lab</h3>
+<ol>
+<li>Start the simulator (Section 4).</li>
+<li>On the <strong>User Generation</strong> screen, click <strong>Dataset Import Lab</strong>.</li>
+</ol>
+<h3 id="step-62-choose-dataset-kind">Step 6.2 — Choose dataset kind</h3>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Use when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Retail</strong></td>
+<td>UCI Online Retail / transaction exports (CSV, Excel, etc.)</td>
+</tr>
+<tr>
+<td><strong>Journal</strong></td>
+<td>Author–title–venue tables</td>
+</tr>
+<tr>
+<td><strong>Tweets</strong></td>
+<td>Twitter-like source files that still need cleaning/mapping</td>
+</tr>
+<tr>
+<td><strong>Other</strong></td>
+<td>Any delimited/workbook file; you map columns yourself</td>
+</tr>
+</tbody>
+</table>
+<h3 id="step-63-select-the-source-file-and-inspect">Step 6.3 — Select the source file and Inspect</h3>
+<ol>
+<li>Browse to your raw file (<code>.csv</code>, <code>.tsv</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.txt</code>, zip workbook, etc.).</li>
+<li>Click <strong>Inspect</strong>.</li>
+<li>Confirm detected delimiter, columns, row counts, and preview look correct.</li>
+</ol>
+<p>Supported delimiters are auto-detected: comma, tab, semicolon, pipe.</p>
+<h3 id="step-64-choose-a-mapping-profile">Step 6.4 — Choose a mapping profile</h3>
+<p>The mapping decides what becomes the DSMP <strong>followee</strong> (class label).</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Similar users / entities</strong></td>
+<td>One shared collection label; good for Doc2Vec / Similarity / K-Means</td>
+</tr>
+<tr>
+<td><strong>Retail: smart product category</strong></td>
+<td><strong>Recommended for SVM and MLP retail tests</strong></td>
+</tr>
+<tr>
+<td><strong>Retail: legacy product family</strong></td>
+<td>Older keyword fallback; keep only for compatibility</td>
+</tr>
+<tr>
+<td><strong>Retail: country baseline</strong></td>
+<td>Sanity check using country as followee</td>
+</tr>
+<tr>
+<td><strong>Retail: stock code experimental</strong></td>
+<td>Many product-code classes; can stress classifiers</td>
+</tr>
+<tr>
+<td><strong>Journal: authors by venue</strong></td>
+<td>Journal/venue = followee, title = text</td>
+</tr>
+<tr>
+<td><strong>Tweets: users by reference account</strong></td>
+<td>Reference account = followee, tweet = text</td>
+</tr>
+<tr>
+<td><strong>Other / custom DSMP mapping</strong></td>
+<td>Manually pick followee, user, date, and text columns</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Retail MLP testing recommendation:</strong> use <strong>Retail: smart product category</strong>.</p>
+<h3 id="step-65-optional-balancing">Step 6.5 — Optional balancing</h3>
+<p>Class imbalance can hurt MLP/SVM accuracy. Import Lab supports:</p>
+<ul>
+<li>Off</li>
+<li>Diagnose only</li>
+<li>Conservative majority cap (<strong>recommended first balancing option</strong>)</li>
+<li>Strict user-level balance</li>
+<li>Hybrid cap + augmentation</li>
+<li>Weka SpreadSubsample / Resample</li>
+</ul>
+<p>For a first test, run <strong>Diagnose only</strong>, inspect the report, then decide whether to rebuild with a balancing mode.</p>
+<h3 id="step-66-build-the-dsmp-output">Step 6.6 — Build the DSMP output</h3>
+<ol>
+<li>Set <strong>Output directory</strong> (typically <code>Dataset/</code> so the file becomes part of the common dataset folder).</li>
+<li>Set <strong>Output name</strong> (default style ends with a DSMP basename).</li>
+<li>Click <strong>Build</strong>.</li>
+<li>Review the output preview. Each line must look like the six-column format in Section 5.</li>
+</ol>
+<p>The exporter writes:</p>
+<pre><code class="language-text">followee/referenceUser&lt;TAB&gt;numericPostId&lt;TAB&gt;yyyy-MM-dd&lt;TAB&gt;numericUserId&lt;TAB&gt;userName&lt;TAB&gt;text
+</code></pre>
+<h3 id="step-67-use-the-output-in-the-simulator">Step 6.7 — Use the output in the simulator</h3>
+<p>Click <strong>Use Output</strong>. The converted file is loaded into Performance Measurement so you can continue with <strong>Get Users → Initialize → Run Simulation</strong>.</p>
+<h3 id="manual-conversion-if-you-prefer-a-spreadsheet">Manual conversion (if you prefer a spreadsheet)</h3>
+<p>If you do not use Import Lab, create a <code>.txt</code> file yourself:</p>
+<ol>
+<li>Create six columns in this exact order: followee, postId, date, userId, userName, text</li>
+<li>Save as <strong>UTF-8 TAB-delimited text</strong></li>
+<li>Remove the header row</li>
+<li>Place the file in <code>Dataset/</code></li>
+<li>Load it from <strong>File → Dataset From Text</strong></li>
+</ol>
+<hr />
+<h2 id="7-performance-measurement-beginner-walkthrough-with-figures">7. Performance Measurement — beginner walkthrough (with figures)</h2>
+<p>These screenshots come from the project’s classic instruction set. The button layout is the same in v2.6; MLP controls and Dataset Import Lab are additional.</p>
+<h3 id="figure-1-switch-to-performance-measurement">Figure 1 — Switch to Performance Measurement</h3>
+<p><img alt="Figure 1. Click Performance Measurement" src="figures/step01.jpg" /></p>
+<ol>
+<li>On the User Generation screen, click <strong>Performance Measurement</strong>.</li>
+</ol>
+<h3 id="figure-2-open-a-dataset-from-text">Figure 2 — Open a dataset from text</h3>
+<p><img alt="Figure 2. File → Dataset From Text" src="figures/step02.jpg" /></p>
+<ol>
+<li>In Performance mode, open <strong>File → Dataset From Text</strong>.</li>
+</ol>
+<h3 id="figure-3-choose-a-corpus-file">Figure 3 — Choose a corpus file</h3>
+<p><img alt="Figure 3. Select a DSMP six-column text file" src="figures/step03.jpg" /></p>
+<ol>
+<li>
+<p>Select a ready DSMP file, for example:</p>
+</li>
+<li>
+<p><code>Dataset/Reduced_14k.txt</code> (quick Twitter check)</p>
+</li>
+<li><code>Dataset/Retail.txt</code> (MLP retail test)</li>
+<li>or your newly imported file from Section 6</li>
+</ol>
+<h3 id="figure-4-set-parameters-then-get-users">Figure 4 — Set parameters, then Get Users</h3>
+<p><img alt="Figure 4. Set nodes/dates/algorithm and click Get Users" src="figures/step04.jpg" /></p>
+<ol>
+<li>Set parameters, then click <strong>1. Get Users</strong>.</li>
+</ol>
+<p>Suggested first-run values:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Beginner value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Number of Nodes</td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td>Number of Latest Tweets</td>
+<td>leave default / reasonable limit</td>
+</tr>
+<tr>
+<td>Begin date</td>
+<td><code>2007-01-01</code> (or earlier than your data)</td>
+</tr>
+<tr>
+<td>End date</td>
+<td>today / after your newest rows</td>
+</tr>
+<tr>
+<td>Top Recommendations</td>
+<td><code>3</code></td>
+</tr>
+<tr>
+<td>Algorithm</td>
+<td>start with <code>SVM</code> or <code>MLP</code></td>
+</tr>
+<tr>
+<td>Text processing</td>
+<td>optional Remove # / RT / Stop Words</td>
+</tr>
+</tbody>
+</table>
+<p><strong>For MLP testing:</strong> choose <strong>MLP</strong> in the Algorithm dropdown. The <strong>MLP Settings</strong> and <strong>MLP Auto Search</strong> buttons become enabled.</p>
+<h3 id="figure-5-initialize">Figure 5 — Initialize</h3>
+<p><img alt="Figure 5. Users loaded; click Initialize" src="figures/step05.jpg" /></p>
+<ol>
+<li>After users appear in the list, click <strong>2. Initialize</strong>.</li>
+</ol>
+<h3 id="figure-6-run-simulation">Figure 6 — Run Simulation</h3>
+<p><img alt="Figure 6. Click Run Simulation" src="figures/step06.jpg" /></p>
+<ol>
+<li>Click <strong>3. Run Simulation</strong>.</li>
+</ol>
+<p>Important rules from the built-in Help:</p>
+<ul>
+<li>If you change parameters, click <strong>Initialize</strong> again before the next run.</li>
+<li>If you load a new file, restart from <strong>File → Dataset From Text</strong>.</li>
+</ul>
+<h3 id="figure-7-read-recommendations-and-timing">Figure 7 — Read recommendations and timing</h3>
+<p><img alt="Figure 7. Recommendations, timing, and finished dialog" src="figures/step07.jpg" /></p>
+<ol>
+<li>
+<p>Inspect:</p>
+</li>
+<li>
+<p>Recommendations for the selected user</p>
+</li>
+<li>Timing Results / Previous Timing Results</li>
+<li>Accuracy / algorithm messages in the result panels</li>
+</ol>
+<p>Results are also written under project folders such as <code>Results/</code> and dataset-specific result folders.</p>
+<hr />
+<h2 id="8-mlp-in-v26-significantly-changed-test-this-carefully">8. MLP in v2.6 (significantly changed — test this carefully)</h2>
+<h3 id="81-default-behavior-same-as-old-v25-neuroph">8.1 Default behavior (same as old v2.5 Neuroph)</h3>
+<p>If you select <strong>MLP</strong> and do <strong>not</strong> enable custom settings, defaults remain:</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine</td>
+<td>Legacy Neuroph MLP</td>
+</tr>
+<tr>
+<td>Hidden layers</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Hidden neurons per layer</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Learning rate</td>
+<td>0.1</td>
+</tr>
+<tr>
+<td>Max error</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>Max iterations</td>
+<td>0 (no cap / unlimited Neuroph iterations)</td>
+</tr>
+</tbody>
+</table>
+<p>This preserves the original Neuroph baseline so older experiments remain comparable.</p>
+<h3 id="82-mlp-settings-dialog">8.2 MLP Settings dialog</h3>
+<ol>
+<li>Algorithm = <strong>MLP</strong></li>
+<li>Click <strong>MLP Settings</strong></li>
+<li>Check <strong>Use custom MLP settings</strong></li>
+<li>Choose engine and parameters</li>
+<li>Click <strong>Apply</strong></li>
+</ol>
+<h4 id="engine-a-legacy-neuroph-mlp">Engine A — Legacy Neuroph MLP</h4>
+<p>Use for baseline Neuroph experiments and comparisons with older papers / runs.</p>
+<p>Configurable fields:</p>
+<ul>
+<li>Hidden layers (1–8)</li>
+<li>Hidden neurons per layer (1–512)</li>
+<li>Learning rate</li>
+<li>Max error</li>
+<li>Max iterations (<code>0</code> means uncapped)</li>
+</ul>
+<p><strong>Warning for testers:</strong> deep Neuroph nets (for example 5 layers) with uncapped iterations can run for many tens of hours on retail/TF‑IDF data. For timed experiments, set a <strong>Max iterations</strong> value (for example 50–4000) or use Auto Search’s bounded profiles.</p>
+<h4 id="engine-b-sparse-federated-mlp-experimental">Engine B — Sparse Federated MLP (experimental)</h4>
+<p>Use for large sparse TF‑IDF / retail cases when Neuroph is too slow or unstable.</p>
+<p>Configurable fields:</p>
+<ul>
+<li>Hidden layers / neurons / learning rate</li>
+<li>Sparse epochs (default 80)</li>
+<li>Sparse FedAvg rounds (default 16)</li>
+<li>Sparse L2 (default 0.0001)</li>
+<li>Sparse FedProx μ (default 0.0)</li>
+</ul>
+<p>Notes:</p>
+<ul>
+<li>Max error is Legacy-only.</li>
+<li>Configurations with <strong>4 or more hidden layers</strong> use depth-stable leaky-ReLU training and <strong>cap the effective learning rate at 0.03</strong>.</li>
+</ul>
+<h3 id="83-mlp-auto-search-hyperparameter-search">8.3 MLP Auto Search (hyperparameter search)</h3>
+<ol>
+<li>Algorithm = <strong>MLP</strong></li>
+<li>Click <strong>MLP Auto Search</strong></li>
+<li>Choose a DSMP dataset file</li>
+<li>Pick a profile</li>
+<li>Run search</li>
+<li>Apply the best settings back into the simulator</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Intended use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Fast bounded search</strong></td>
+<td>First tester run / smoke search</td>
+</tr>
+<tr>
+<td><strong>Balanced staged search</strong></td>
+<td>Stronger but still practical search</td>
+</tr>
+<tr>
+<td><strong>Deep rescue search</strong></td>
+<td>Sparse-focused deeper rescue</td>
+</tr>
+<tr>
+<td><strong>Legacy Neuroph bounded</strong></td>
+<td>Neuroph-only search with iteration caps</td>
+</tr>
+<tr>
+<td><strong>Full research search</strong></td>
+<td>Overnight / exhaustive (~28,800 planned runs) — <strong>do not use for quick checks</strong></td>
+</tr>
+<tr>
+<td><strong>Custom</strong></td>
+<td>Manual grid</td>
+</tr>
+</tbody>
+</table>
+<p>Ranking uses <strong>validation accuracy</strong> first. Test accuracy is shown for audit only. Legacy Neuroph candidates are forced to use a max-iteration cap during HPO so searches do not hang forever.</p>
+<p>Fast profile grid (default style):</p>
+<ul>
+<li>Layers: <code>1, 3, 5</code></li>
+<li>Neurons: <code>10, 25</code></li>
+<li>Learning rates: <code>0.1, 0.03, 0.01</code></li>
+<li>Legacy max iterations: <code>50</code></li>
+<li>Sparse epochs: <code>80, 160</code></li>
+<li>FedAvg rounds: <code>16</code></li>
+</ul>
+<h3 id="84-suggested-mlp-tester-checklist-maha-aneela">8.4 Suggested MLP tester checklist (Maha / Aneela)</h3>
+<ol>
+<li>Confirm branch is <code>v2.6</code>.</li>
+<li>Run a short baseline:</li>
+<li>Dataset: <code>Dataset/Retail.txt</code> or <code>Dataset/Reduced_14k.txt</code></li>
+<li>Nodes: <code>1</code></li>
+<li>Algorithm: MLP</li>
+<li>Custom settings: <strong>off</strong> (legacy Neuroph defaults)</li>
+<li>Repeat with custom Neuroph settings, for example:</li>
+<li>1 layer / 10 neurons / LR 0.1 / <strong>max iterations 50</strong></li>
+<li>3 layers / 10 or 25 neurons / bounded iterations</li>
+<li>Try Sparse Federated MLP on Retail with defaults (80 epochs, 16 FedAvg rounds).</li>
+<li>Run <strong>MLP Auto Search → Fast bounded search</strong> on the same DSMP file; Apply best; re-run Performance Measurement.</li>
+<li>Optional: import raw UCI Online Retail through Dataset Import Lab using <strong>smart product category</strong>, save into <code>Dataset/</code>, then repeat steps 2–5.</li>
+<li>Record for each run: dataset name, engine, layers, neurons, LR, iterations/epochs, nodes, accuracy, wall-clock time, and whether the run finished.</li>
+</ol>
+<h3 id="85-long-running-neuroph-note">8.5 Long-running Neuroph note</h3>
+<p>Earlier 5-layer Neuroph experiments on original unbalanced UCI retail ran for 47–71+ hours because training is CPU-based and can converge very slowly when uncapped. For testing:</p>
+<ul>
+<li>Prefer bounded max iterations, or</li>
+<li>Prefer Sparse Federated MLP, or</li>
+<li>Prefer Auto Search bounded profiles</li>
+</ul>
+<p>GPU cloud (Colab) will <strong>not</strong> automatically accelerate the current Neuroph path; a faster CPU helps more than a GPU unless the implementation is changed.</p>
+<hr />
+<h2 id="9-quick-start-recipes">9. Quick start recipes</h2>
+<h3 id="recipe-a-fast-twitter-smoke-test-no-conversion">Recipe A — Fast Twitter smoke test (no conversion)</h3>
+<ol>
+<li><code>build.py setup</code> then <code>build.py run</code></li>
+<li>Performance Measurement</li>
+<li>File → Dataset From Text → <code>Dataset/Reduced_14k.txt</code></li>
+<li>Nodes = 1, Algorithm = SVM or MLP</li>
+<li>Get Users → Initialize → Run Simulation</li>
+</ol>
+<h3 id="recipe-b-retail-mlp-test-with-pre-converted-file">Recipe B — Retail MLP test with pre-converted file</h3>
+<ol>
+<li>Performance Measurement</li>
+<li>Load <code>Dataset/Retail.txt</code></li>
+<li>Algorithm = MLP</li>
+<li>Optional: MLP Settings / MLP Auto Search</li>
+<li>Get Users → Initialize → Run Simulation</li>
+</ol>
+<h3 id="recipe-c-new-raw-uci-online-retail-file">Recipe C — New raw UCI Online Retail file</h3>
+<ol>
+<li>Open <strong>Dataset Import Lab</strong></li>
+<li>Kind = Retail</li>
+<li>Inspect raw CSV/XLSX</li>
+<li>Mapping = <strong>Retail: smart product category</strong></li>
+<li>Optional balancing = Diagnose only, then Conservative majority cap if needed</li>
+<li>Build into <code>Dataset/</code></li>
+<li>Use Output</li>
+<li>Algorithm = MLP → run Section 8 checklist</li>
+</ol>
+<h3 id="recipe-d-journal-dataset">Recipe D — Journal dataset</h3>
+<ol>
+<li>Import Lab → Kind = Journal → mapping <strong>Journal: authors by venue</strong><br />
+<strong>or</strong> load <code>Dataset/Dataset-Journals-Authors-Titles-August6.txt</code></li>
+<li>Get Users → Initialize → Run Simulation</li>
+</ol>
+<hr />
+<h2 id="10-user-generation-simulation-optional-second-mode">10. User Generation Simulation (optional second mode)</h2>
+<p>Use this mode when you want to create artificial tweets from an existing corpus.</p>
+<p>Built-in Help summary:</p>
+<ol>
+<li><strong>Collect Data</strong> from Twitter (followee names comma-separated + follower count), <strong>or skip</strong> if you already have a correctly formatted corpus. Collected files go under:
+   <code>Dataset/TwitterObtained/&lt;names&gt;_&lt;timestamp&gt;/*_final.txt</code></li>
+<li><strong>Load A Corpus</strong></li>
+<li><strong>Set Number Of Artificial Tweets</strong> (<code>0</code> = same size as processed corpus)</li>
+<li><strong>Start User Sim / Start User Gen</strong><br />
+   Output appears under:
+   <code>Dataset/TwitterObtained/GENERATED/&lt;ORIGINALFILENAME&gt;_&lt;timestamp&gt;_GENERATED.txt</code></li>
+<li>Evaluate the generated file later in Performance Measurement (Section 7)</li>
+</ol>
+<hr />
+<h2 id="11-algorithms-available-in-performance-mode">11. Algorithms available in Performance mode</h2>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Similarity</td>
+<td>Unsupervised similarity baseline</td>
+</tr>
+<tr>
+<td>K-Means</td>
+<td>Clustering recommender</td>
+</tr>
+<tr>
+<td>SVM</td>
+<td>Supervised baseline; good retail/Twitter classifier check</td>
+</tr>
+<tr>
+<td><strong>MLP</strong></td>
+<td>v2.6 focus: Neuroph + Sparse Federated + Auto Search</td>
+</tr>
+<tr>
+<td>Doc2Vec</td>
+<td>Embedding-based path</td>
+</tr>
+<tr>
+<td>Common-Neighbors</td>
+<td>Graph-neighborhood style recommendation</td>
+</tr>
+<tr>
+<td>K-meansEuclidean</td>
+<td>Euclidean variant of K-Means</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="12-multi-node-parallel-experiments">12. Multi-node / parallel experiments</h2>
+<ol>
+<li>Set <strong>Number of Nodes</strong> to <code>2</code>, <code>4</code>, or <code>8</code> (as required by the experiment plan).</li>
+<li>Initialize again after changing node count.</li>
+<li>Compare timing and accuracy against the 1-node run.</li>
+<li>For Sparse Federated MLP, FedAvg round models may appear under <code>Stored_NN/</code> (for example averaged sparse MLP round files).</li>
+</ol>
+<p>If a deep MLP accuracy gain is only marginal, the lab may switch to a 3-layer (or other agreed) configuration for multi-node / parallelization experiments.</p>
+<hr />
+<h2 id="13-troubleshooting">13. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>What to try</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wrong Python version</td>
+<td>Use only 3.9 or 3.10 with <code>build.py</code></td>
+</tr>
+<tr>
+<td><code>java</code> / <code>mvn</code> not found</td>
+<td>Install JDK/Maven and add them to PATH</td>
+</tr>
+<tr>
+<td>Setup fails</td>
+<td><code>python3.9 build.py info</code> then <code>python3.9 build.py setup -v</code></td>
+</tr>
+<tr>
+<td>Dirty rebuild</td>
+<td><code>python3.9 build.py clean</code> then <code>python3.9 build.py setup</code></td>
+</tr>
+<tr>
+<td>Get Users finds nobody</td>
+<td>File is not TAB 6-column DSMP format, or dates are outside Begin/End</td>
+</tr>
+<tr>
+<td>Import looks wrong</td>
+<td>Re-Inspect; check delimiter and mapping profile</td>
+</tr>
+<tr>
+<td>MLP buttons disabled</td>
+<td>Select Algorithm = <strong>MLP</strong> first</td>
+</tr>
+<tr>
+<td>Neuroph never finishes</td>
+<td>Set max iterations, use bounded Auto Search, or switch to Sparse Federated</td>
+</tr>
+<tr>
+<td>New dataset not seen by others</td>
+<td>Save the converted DSMP file into the shared <code>Dataset/</code> folder</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="14-development-repository-note-for-the-team">14. Development / repository note (for the team)</h2>
+<p>For software code changes, the lab is using an incremental / sprint-style process: do not push conflicting simulator code until the group meets and unit-tested change lists are ready. Documentation and other non-functional work (such as this user guide) may be maintained on a separate branch.</p>
+<p>Current simulator development uploads for v2.6 / related lines are coordinated through the abhari GitHub repository used by the lab.</p>
+<hr />
+<h2 id="15-one-page-cheat-sheet">15. One-page cheat sheet</h2>
+<pre><code class="language-text">1. git clone repo → checkout v2.6
+2. python3.9 build.py setup
+3. python3.9 build.py run
+4. If raw new data: Dataset Import Lab → Build DSMP 6-column file into Dataset/
+5. Performance Measurement → File → Dataset From Text
+6. Get Users → Initialize → Run Simulation
+7. For MLP: use MLP Settings and/or MLP Auto Search (Fast bounded first)
+8. Re-Initialize before every new parameter run
+</code></pre>
+<p><strong>Canonical DSMP line:</strong></p>
+<pre><code class="language-text">followee    postId  yyyy-MM-dd  userId  userName    text
+</code></pre>
+<hr />
+<h2 id="appendix-a-figure-index">Appendix A — Figure index</h2>
+<table>
+<thead>
+<tr>
+<th>Figure</th>
+<th>File</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>docs/figures/step01.jpg</code></td>
+<td>Click Performance Measurement</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>docs/figures/step02.jpg</code></td>
+<td>File → Dataset From Text</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>docs/figures/step03.jpg</code></td>
+<td>Select corpus</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>docs/figures/step04.jpg</code></td>
+<td>Set parameters → Get Users</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>docs/figures/step05.jpg</code></td>
+<td>Initialize</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>docs/figures/step06.jpg</code></td>
+<td>Run Simulation</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>docs/figures/step07.jpg</code></td>
+<td>Read recommendations / timing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="appendix-b-source-references-used-for-this-guide">Appendix B — Source references used for this guide</h2>
+<ul>
+<li>Branch <code>v2.6</code> of https://github.com/aabhari/SocialNetworkSimulatorV3.1</li>
+<li>In-app Help dialogs in <code>ControllerAgentGui</code></li>
+<li><code>DatasetImportLabDialog</code> / <code>UciRetailDatasetImporter</code></li>
+<li><code>MlpSettingsDialog</code> / <code>MlpHyperparameterSearchDialog</code></li>
+<li>Project screenshot pack under <code>Screenshot Instructions-...</code></li>
+<li>Ready corpora under <code>Dataset/</code>, <code>TestedDataset/</code>, <code>important-stuff/</code></li>
+</ul>
+<hr />
+<p><em>End of DSMP User Guide v2.6 (final testing version).</em></p>
+</main>
+</body>
+</html>
