@@ -88,6 +88,8 @@ import org.neuroph.core.transfer.TransferFunction;
 import org.neuroph.contrib.learning.SoftMax;
 import org.neuroph.core.learning.LearningRule;
 import org.neuroph.nnet.learning.BackPropagation;
+import org.neuroph.core.events.LearningEvent;
+import org.neuroph.core.events.LearningEventListener;
 import org.neuroph.eval.CrossValidation;  //Sepide
 import org.neuroph.eval.ClassifierEvaluator; //Sepide
 import org.neuroph.eval.CrossValidationResult;  //Sepide
@@ -3913,10 +3915,14 @@ public class RecommenderAgent extends Agent
 					catch (Exception e)
 					{
 						e.printStackTrace();
+						if (myGui != null)
+						{
+							myGui.showUserError("SVM Execution Failed",
+									"SVM training failed: " + e.getMessage()
+									+ "\n\nCheck that the dataset loaded correctly and that class/followee labels are present."
+									+ "\nTechnical details were written to the console log.");
+						}
 					}
-					// }
-					// else
-						// svmModel = trainedCentralSVM;
 					
 					System.out.println("SVM BIAS HERE");
 					
@@ -4836,7 +4842,15 @@ public class RecommenderAgent extends Agent
 
 					AlgorithmParameterSettings mlpSettings = effectiveAlgorithmSettings();
 					sparseFederatedMlpRun = AlgorithmParameterSettings.MLP_ENGINE_SPARSE_FEDERATED.equals(mlpSettings.getMlpEngine());
-					validateMlpConfiguration(mlpSettings.getMlpEngineLabel(), numUniqueDocTerms, mlpSettings.getMlpHiddenNeurons(), mlpSettings.getMlpHiddenLayers(), numFollowees, trainMLP.size(), testMLP.size(), recMLP.size());
+					try
+					{
+						validateMlpConfiguration(mlpSettings.getMlpEngineLabel(), numUniqueDocTerms, mlpSettings.getMlpHiddenNeurons(), mlpSettings.getMlpHiddenLayers(), numFollowees, trainMLP.size(), testMLP.size(), recMLP.size());
+					}
+					catch (IllegalStateException mlpConfigError)
+					{
+						handleMlpFailure(mlpConfigError.getMessage(), mlpConfigError);
+						throw mlpConfigError;
+					}
 					if (sparseFederatedMlpRun)
 					{
 						runSparseFederatedMlp(mlpSettings, allUserDocumentsTFIDF, numUniqueDocTerms, numFollowees);
@@ -4858,14 +4872,27 @@ public class RecommenderAgent extends Agent
 						BackPropagation nodeLearningRule = (BackPropagation) nodeMLP.getLearningRule();
 						nodeLearningRule.setLearningRate(mlpSettings.getMlpLearningRate());
 						nodeLearningRule.setMaxError(mlpSettings.getMlpMaxError());
-						//nodeLearningRule.setMaxIterations(100);
+						configureLegacyNeurophTraining(nodeLearningRule, mlpSettings);
 
 					System.out.println(getLocalName()+" training MLP");
 					
 					startTimeTrain = System.nanoTime();
-					//System.out.println("The line before the training starts");
-					nodeMLP.learn(trainMLP);
-					//System.out.println(" This line is taking a lot of time");
+					try
+					{
+						reportMlpStatus("Legacy Neuroph MLP training started (max "
+								+ mlpSettings.getMlpMaxIterations()
+								+ " iterations). The window should stay usable; this is computation, not a crash.");
+						nodeMLP.learn(trainMLP);
+						reportMlpStatus("Legacy Neuroph MLP training finished after "
+								+ nodeLearningRule.getCurrentIteration()
+								+ " iteration(s). Previous epoch error="
+								+ nodeLearningRule.getPreviousEpochError());
+					}
+					catch (RuntimeException mlpTrainError)
+					{
+						handleMlpFailure("Legacy Neuroph MLP training failed: " + mlpTrainError.getMessage(), mlpTrainError);
+						throw mlpTrainError;
+					}
 					
 					endTimeTrain = System.nanoTime();
 					
@@ -5612,6 +5639,92 @@ public class RecommenderAgent extends Agent
 			}
 		}
 
+		private boolean isDataBalancingEnabled()
+		{
+			return myGui != null && myGui.isDataBalancingEnabled();
+		}
+
+		private ArrayList<String> balanceTrainingUsers(List<String> trainUsers)
+		{
+			DataBalancer.Result result = DataBalancer.apply(trainUsers, userFollowee, isDataBalancingEnabled());
+			String summary = result.summaryText();
+			System.out.println(getLocalName()+" "+summary.replace('\n', ' '));
+			if (myGui != null)
+			{
+				myGui.appendResult(summary);
+				if (result.isEnabled() && !result.isUnchanged())
+				{
+					myGui.updateProgressLabel("training set balanced");
+				}
+				else if (!result.isEnabled())
+				{
+					myGui.updateProgressLabel("using original training set");
+				}
+			}
+			return result.getOutputTrainUsers();
+		}
+
+		private void configureLegacyNeurophTraining(final BackPropagation learningRule, AlgorithmParameterSettings settings)
+		{
+			final int maxIterations = Math.max(1, settings.getMlpMaxIterations());
+			learningRule.setMaxIterations(maxIterations);
+			learningRule.addListener(new LearningEventListener() {
+				public void handleLearningEvent(LearningEvent event)
+				{
+					if (event == null || event.getEventType() == null)
+					{
+						return;
+					}
+					if (event.getEventType() == LearningEvent.Type.EPOCH_ENDED)
+					{
+						int iteration = learningRule.getCurrentIteration();
+						if (iteration == 1 || iteration % 10 == 0 || iteration >= maxIterations)
+						{
+							reportMlpStatus("Legacy Neuroph MLP iteration " + iteration
+									+ " of " + maxIterations
+									+ " (error=" + learningRule.getPreviousEpochError()
+									+ "). Still training; the GUI is not frozen.");
+						}
+					}
+					else if (event.getEventType() == LearningEvent.Type.LEARNING_STOPPED)
+					{
+						reportMlpStatus("Legacy Neuroph MLP stopped at iteration "
+								+ learningRule.getCurrentIteration()
+								+ " of " + maxIterations
+								+ " (error=" + learningRule.getPreviousEpochError() + ").");
+					}
+				}
+			});
+		}
+
+		private void reportMlpStatus(String message)
+		{
+			System.out.println(getLocalName()+" "+message);
+			if (myGui != null)
+			{
+				myGui.appendResult(message);
+				myGui.updateProgressLabel(message);
+			}
+		}
+
+		private void handleMlpFailure(String message, Throwable error)
+		{
+			System.err.println(getLocalName()+" "+message);
+			if (error != null)
+			{
+				error.printStackTrace();
+			}
+			if (myGui != null)
+			{
+				myGui.updateProgressLabel("MLP failed");
+				myGui.appendResult(message);
+				myGui.showUserError("MLP Execution Failed",
+						message + "\n\nTechnical details were written to the console log."
+						+ "\nTry SVM for a quicker baseline, reduce the dataset with Tweet Limit,"
+						+ " or lower Max iterations in MLP Settings.");
+			}
+		}
+
 		private MultiLayerPerceptron createLegacyNeurophMlp(int inputCount, int hiddenNeurons, int hiddenLayers, int outputCount)
 		{
 			int safeHiddenLayers = Math.max(1, hiddenLayers);
@@ -5668,8 +5781,21 @@ public class RecommenderAgent extends Agent
 					+", train="+trainRows
 					+", test="+testRows
 					+", recommend="+recRows
+					+", maxIterations="+settings.getMlpMaxIterations()
+					+", maxError="+settings.getMlpMaxError()
 					+", denseEstimate="+estimatedMb+" MB";
 			System.out.println(getLocalName()+" "+detail);
+			if (estimatedMb >= 100)
+			{
+				String warning = "Legacy Neuroph MLP may take several minutes on this dense TF-IDF shape. Training is capped at "
+						+ settings.getMlpMaxIterations()
+						+ " iterations. SVM is usually faster for a quick baseline.";
+				System.out.println(getLocalName()+" "+warning);
+				if (myGui != null)
+				{
+					myGui.appendResult(warning);
+				}
+			}
 			if (myGui != null)
 			{
 				myGui.appendResult(detail);
@@ -5688,6 +5814,9 @@ public class RecommenderAgent extends Agent
 		private void runSparseFederatedMlp(AlgorithmParameterSettings settings, LinkedHashMap<String,LinkedHashMap<String,Double>> allUserDocumentsTFIDF, int numUniqueDocTerms, int numFollowees)
 		{
 			System.out.println(getLocalName()+" training Sparse Federated MLP");
+			reportMlpStatus("Sparse Federated MLP training started ("
+					+ settings.getMlpSparseEpochs()
+					+ " epochs). This is bounded and should complete; the window should stay usable.");
 			Map<String,Integer> sparseTermIndex = buildSparseMlpTermIndex(allUniqueDocTerms);
 			List<SparseFederatedMlpModelSupport.TrainingExample> sparseTrainExamples = createSparseMlpExamples(trainSetUsers, allUserDocumentsTFIDF, sparseTermIndex, true);
 			sparseMlpTestExamples = createSparseMlpExamples(testSetUsers, allUserDocumentsTFIDF, sparseTermIndex, true);
@@ -5695,9 +5824,19 @@ public class RecommenderAgent extends Agent
 			validateMlpConfiguration(settings.getMlpEngineLabel(), numUniqueDocTerms, settings.getMlpHiddenNeurons(), settings.getMlpHiddenLayers(), numFollowees, sparseTrainExamples.size(), sparseMlpTestExamples.size(), sparseMlpRecExamples.size());
 			SparseFederatedMlpModelSupport.SparseMlpModel model = SparseFederatedMlpModelSupport.SparseMlpModel.create(numUniqueDocTerms, settings.getMlpHiddenLayers(), settings.getMlpHiddenNeurons(), numFollowees, 31L + Integer.parseInt(nodeNumber));
 			startTimeTrain = System.nanoTime();
-			model.train(sparseTrainExamples, settings.getMlpSparseEpochs(), settings.getMlpLearningRate(), settings.getMlpSparseL2(), settings.getMlpFedProxMu());
+			try
+			{
+				model.train(sparseTrainExamples, settings.getMlpSparseEpochs(), settings.getMlpLearningRate(), settings.getMlpSparseL2(), settings.getMlpFedProxMu());
+			}
+			catch (RuntimeException sparseTrainError)
+			{
+				handleMlpFailure("Sparse Federated MLP training failed: " + sparseTrainError.getMessage(), sparseTrainError);
+				throw sparseTrainError;
+			}
 			endTimeTrain = System.nanoTime();
 			completionTimeTrain = endTimeTrain - startTimeTrain;
+			reportMlpStatus("Sparse Federated MLP training finished after "
+					+ settings.getMlpSparseEpochs() + " epoch(s).");
 			if (numRecAgents < 2)
 			{
 				startTimeTest = System.nanoTime();
@@ -5917,6 +6056,7 @@ public class RecommenderAgent extends Agent
 			}
 			Collections.sort(trainSetUsers);
 			Collections.sort(testSetUsers);
+			trainSetUsers = balanceTrainingUsers(trainSetUsers);
 		}
 
 		private void determineTrainingTestSet()
@@ -6333,7 +6473,7 @@ public class RecommenderAgent extends Agent
 			{
 				SvmReproducibility.Split split = SvmReproducibility.stratifiedSplit(
 						targetFolloweeFollowers, TEST_SET_PERCENT);
-				return new SvmDataSplit(split.getTrainUsers(), split.getTestUsers());
+				return new SvmDataSplit(balanceTrainingUsers(split.getTrainUsers()), split.getTestUsers());
 			}
 
 			private void logSvmSplitSummary(String label, List<String> trainUsers, List<String> testUsers)

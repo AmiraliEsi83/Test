@@ -78,6 +78,11 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	public JComboBox<String> algorithmSelectionBox;
 	private JButton mlpSettingsButton;
 	private AlgorithmParameterSettings algorithmParameterSettings = AlgorithmParameterSettings.defaults();
+	private DefaultComboBoxModel<String> dataBalancingModel;
+	private JComboBox<String> dataBalancingBox;
+	private JComboBox<String> dataBalancingFileBox;
+	public static final String DATA_BALANCING_ORIGINAL = "Use Original Dataset (no balancing)";
+	public static final String DATA_BALANCING_OVERSAMPLE = "Use Balanced Dataset (oversample training classes)";
 	private JComboBox<String> mapperSelectionBox;
 	private JComboBox<String> reducerSelectionBox;
 	public JComboBox<String> simulationSelectionBox;             // added by Sepide
@@ -88,6 +93,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	private JLabel endDateLabel;
 	private JLabel recommendationLabel;
 	private JLabel svmBatchUsersLabel;
+	private JLabel dataBalancingLabel;
 	private JLabel algorithmLabel;
 	private JLabel numReducersLabel;
 	private JLabel numMappersLabel;
@@ -186,6 +192,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	private int mapperChoice;
 	private int numFollowersToGrab; //Number of followers to get from Twitter API
 	private int numArtificialTweets; //Number of artificial tweets to generate
+	private boolean simulationRunning;
 	private int[] a;   // added by Sepide
 	private int[] b;   // added by Sepide
 	private int[] c;   // added by Sepide
@@ -244,6 +251,8 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 
 		fileChooser = new JFileChooser();
 		fileChooser.setCurrentDirectory(new File(System.getProperty("user.dir")));
+		createDataBalancingControls();
+		fileChooser.setAccessory(buildDataBalancingAccessory());
 		// Action details = fileChooser.getActionMap().get("viewTypeDetails");
 		// details.actionPerformed(null);
 		
@@ -459,6 +468,12 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 				showMlpSettingsDialog();
 			}
 		});
+		dataBalancingLabel = new JLabel("Data Balancing: ");
+		dataBalancingLabel.setForeground(Color.WHITE);
+		dataBalancingLabel.setHorizontalAlignment(JLabel.RIGHT);
+		dataBalancingLabel.setFont(new Font("Arial",Font.BOLD,12));
+		dataBalancingBox = new JComboBox<String>(dataBalancingModel);
+		dataBalancingBox.setToolTipText("Original keeps the imported class counts. Balanced oversamples minority training classes to the majority-class count. The source file is not changed.");
 		refreshMlpSettingsButton();
 
 		String[] simulationSelection = {"0", "1", "2", "3", "4", "5"};       // added by Sepide
@@ -483,6 +498,47 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	public AlgorithmParameterSettings getAlgorithmParameterSettings()
 	{
 		return algorithmParameterSettings.copy();
+	}
+
+	public boolean isDataBalancingEnabled()
+	{
+		return dataBalancingModel != null
+				&& DATA_BALANCING_OVERSAMPLE.equals(dataBalancingModel.getSelectedItem());
+	}
+
+	public String getDataBalancingSelectionLabel()
+	{
+		if (dataBalancingModel == null || dataBalancingModel.getSelectedItem() == null)
+		{
+			return DATA_BALANCING_ORIGINAL;
+		}
+		return dataBalancingModel.getSelectedItem().toString();
+	}
+
+	private void createDataBalancingControls()
+	{
+		dataBalancingModel = new DefaultComboBoxModel<String>(new String[] {
+				DATA_BALANCING_ORIGINAL,
+				DATA_BALANCING_OVERSAMPLE
+		});
+		dataBalancingModel.setSelectedItem(DATA_BALANCING_ORIGINAL);
+	}
+
+	private JPanel buildDataBalancingAccessory()
+	{
+		dataBalancingFileBox = new JComboBox<String>(dataBalancingModel);
+		dataBalancingFileBox.setToolTipText("Choose whether the next Initialize/Start uses the original class counts or a balanced training set. The source file is not modified.");
+		JPanel accessory = new JPanel();
+		accessory.setLayout(new BoxLayout(accessory, BoxLayout.Y_AXIS));
+		accessory.setBorder(BorderFactory.createTitledBorder("Data Balancing"));
+		JLabel help = new JLabel("<html>v3.2: choose original or<br>balanced training classes.<br>Change this before Initialize.</html>");
+		help.setAlignmentX(Component.LEFT_ALIGNMENT);
+		dataBalancingFileBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+		accessory.add(help);
+		accessory.add(Box.createVerticalStrut(8));
+		accessory.add(dataBalancingFileBox);
+		accessory.setPreferredSize(new Dimension(260, 120));
+		return accessory;
 	}
 
 	private void showMlpSettingsDialog()
@@ -1166,8 +1222,8 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		initializationsPanel.add(simulationSelectionBox);        // added by Sepide
 		initializationsPanel.add(svmBatchUsersLabel);
 		initializationsPanel.add(svmBatchUsersField);
-		initializationsPanel.add(new JLabel(""));
-		initializationsPanel.add(new JLabel(""));
+		initializationsPanel.add(dataBalancingLabel);
+		initializationsPanel.add(dataBalancingBox);
 		initializationsPanel.setBorder(initializationTitle);
 
 		textProcessingPanel.add(removeHashTags);
@@ -1335,7 +1391,14 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 			File selectedFile = fileChooser.getSelectedFile();
 			myAgent.setFile(selectedFile);
 			System.out.println("Selected file: " + selectedFile.getAbsolutePath());
-			JOptionPane.showMessageDialog(this,"Loaded File: "+selectedFile.getName(),"File Selected", JOptionPane.INFORMATION_MESSAGE);
+			JOptionPane.showMessageDialog(this,
+					"Loaded File: "+selectedFile.getName()
+					+ "\n\nData Balancing: " + getDataBalancingSelectionLabel()
+					+ "\n\nThis setting is also on the Performance Measurement panel."
+					+ "\nUse Original Dataset keeps the imported class counts."
+					+ "\nUse Balanced Dataset oversamples minority training classes."
+					+ "\nThe source file is not modified. Re-Initialize after changing this setting.",
+					"File Selected", JOptionPane.INFORMATION_MESSAGE);
 		}
 		
 		if (fileOption == FROM_TEXT)
@@ -1538,6 +1601,7 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		sepNum = 0;
 		listSize = 0;
 		simulationIteration = 0;
+		simulationRunning = false;
 		indexToRecommend = 0;
 		indexToRecommend2 = 0;
 		tweetLimit = 0;
@@ -1598,6 +1662,10 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		removeRetweets.setSelected(true);
 		removeStopWords.setSelected(true);
 		simulateTweetDelay.setSelected(true);
+		if (dataBalancingModel != null)
+		{
+			dataBalancingModel.setSelectedItem(DATA_BALANCING_ORIGINAL);
+		}
 		refreshMlpSettingsButton();
 		fileChooser.setSelectedFile(null);
 
@@ -1636,6 +1704,8 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 		getUsersButton.setEnabled(false);
 		startButton.setEnabled(false);
 		initializeButton.setEnabled(false);
+		updateProgressLabel("initializing (" + getDataBalancingSelectionLabel() + ")");
+		appendResult("Initialize using " + getDataBalancingSelectionLabel());
 		
 		recommendationArea.setText("");
 
@@ -1700,9 +1770,24 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 
 	public void startSimulation()
 	{
+		if (simulationRunning)
+		{
+			showUserMessage("Simulation Already Running",
+					"A simulation is already running. Wait for it to finish, or press Reset Experiment.",
+					JOptionPane.WARNING_MESSAGE);
+			return;
+		}
+		simulationRunning = true;
 		startButton.setEnabled(false);
 		initializeButton.setEnabled(false);
 		getUsersButton.setEnabled(false);
+		updateProgressLabel("starting simulation (" + getDataBalancingSelectionLabel() + ")");
+		appendResult("Data Balancing setting: " + getDataBalancingSelectionLabel());
+		if (algorithmRec == MLP)
+		{
+			appendResult("MLP: " + algorithmParameterSettings.summaryForMlp()
+					+ ". Training runs in the background; the window should stay usable.");
+		}
 		
 		GuiEvent ge = new GuiEvent(this,myAgent.START_SIM);
 		ge.addParameter(numNodes);
@@ -1850,12 +1935,22 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 
 	public void appendResult(String resultText)
 	{
-		resultArea.append(resultText+"\n");
+		final String line = resultText+"\n";
+		runOnEventDispatchThread(new Runnable() {
+			public void run() {
+				resultArea.append(line);
+			}
+		});
 	}
 
 	public void appendPreviousResult(String resultText)
 	{
-		previousResultArea.append(resultText+"\n");
+		final String line = resultText+"\n";
+		runOnEventDispatchThread(new Runnable() {
+			public void run() {
+				previousResultArea.append(line);
+			}
+		});
 	}
 
 	public void appendRecommendation(String recommendationText)
@@ -1907,9 +2002,14 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	
 	public void enableAllButtons()
 	{
-		startButton.setEnabled(true);	
-		initializeButton.setEnabled(true);
-		getUsersButton.setEnabled(true);
+		runOnEventDispatchThread(new Runnable() {
+			public void run() {
+				simulationRunning = false;
+				startButton.setEnabled(true);
+				initializeButton.setEnabled(true);
+				getUsersButton.setEnabled(true);
+			}
+		});
 	}
 	
 	public void disableStartButton()
@@ -2057,7 +2157,17 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	
 	public void helpPerformanceText()
 	{
-		JOptionPane.showMessageDialog(this,"1. Load a text file from the File Menu.\n2. Get Users after selecting a text file.\n3. Change any parameters then Initialize.\n4. Run simulation.\n5. If you want to run another simulation with different parameters, make sure to re-Initialize again before running the simulation.\n6. Press Reset Experiment before beginning a brand new experiment.", "How To Use", JOptionPane.INFORMATION_MESSAGE);
+		JOptionPane.showMessageDialog(this,
+				"1. Load a text file from File -> Dataset From Text. The import dialog includes a Data Balancing control.\n"
+				+ "2. Get Users after selecting a text file.\n"
+				+ "3. Choose Data Balancing: Use Original Dataset or Use Balanced Dataset. The same control is on the Performance Measurement panel.\n"
+				+ "4. Change any other parameters then Initialize.\n"
+				+ "5. Run simulation.\n"
+				+ "6. To compare original vs balanced results, run once with Use Original Dataset, record Performance Measurement, switch to Use Balanced Dataset, re-Initialize, then run again. Previous results stay in the previous-results pane.\n"
+				+ "7. MLP Settings (visible when MLP is selected) include a max-iteration cap. Default is 100 so training cannot run unbounded. The progress label reports MLP epochs; a long run is still working, not frozen.\n"
+				+ "8. If you want to run another simulation with different parameters, re-Initialize before running again.\n"
+				+ "9. Press Reset Experiment before beginning a brand new experiment.",
+				"How To Use", JOptionPane.INFORMATION_MESSAGE);
 	}
 	
 	public void setTPTime(double tpTime)
@@ -2213,7 +2323,38 @@ public class ControllerAgentGui extends JFrame implements ActionListener {
 	
 	public void updateProgressLabel(String updateText)
 	{
-		performanceProgressLabel.setText("Current Progress: "+updateText);
+		final String text = "Current Progress: "+updateText;
+		runOnEventDispatchThread(new Runnable() {
+			public void run() {
+				performanceProgressLabel.setText(text);
+			}
+		});
+	}
+
+	public void showUserMessage(final String title, final String message, final int messageType)
+	{
+		runOnEventDispatchThread(new Runnable() {
+			public void run() {
+				JOptionPane.showMessageDialog(ControllerAgentGui.this, message, title, messageType);
+			}
+		});
+	}
+
+	public void showUserError(String title, String message)
+	{
+		showUserMessage(title, message, JOptionPane.ERROR_MESSAGE);
+	}
+
+	private void runOnEventDispatchThread(Runnable task)
+	{
+		if (SwingUtilities.isEventDispatchThread())
+		{
+			task.run();
+		}
+		else
+		{
+			SwingUtilities.invokeLater(task);
+		}
 	}
 	
 	public void updateUserGenProgressLabel(String updateText)

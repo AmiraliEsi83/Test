@@ -929,6 +929,15 @@ public class ControllerAgent extends GuiAgent {
 
 		} catch (Exception e) {
 			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace();
+			if (myGui != null)
+			{
+				myGui.showUserError("Simulation Failed",
+						"Could not start the simulation: " + e.getMessage()
+						+ "\n\nInitialize again after checking that a dataset is loaded.");
+				myGui.enableAllButtons();
+			}
+			return;
 		}
 
 		myGui.disableStartButton();
@@ -1834,6 +1843,14 @@ public class ControllerAgent extends GuiAgent {
 				}*/
 			}catch (Exception e){
 				System.err.println("Text Read Initialize Error: " + e.getMessage());
+				e.printStackTrace();
+				if (myGui != null)
+				{
+					myGui.showUserError("Dataset Initialize Failed",
+							"Could not initialize from the selected text dataset: " + e.getMessage()
+							+ "\n\nUse File -> Dataset From Text to load a valid file, then press Get Users and Initialize again.");
+					myGui.enableAllButtons();
+				}
 			}  
 
 			System.out.println("FROM TEXTFILE TotalUsers: "+totalUsers);
@@ -2773,23 +2790,18 @@ public class ControllerAgent extends GuiAgent {
 						//linecount++;
 						String info[] = lineBuffer.toString().split("\t",6);
 						lineBuffer.setLength(0);
-						//for (String s : info)
-						//{
-						//	System.out.print(s+",");
-						//}
-						//System.out.println();
+						if (info.length < 6)
+						{
+							System.err.println("Skipping malformed dataset line (expected 6 tab-separated fields).");
+							if (myGui != null)
+							{
+								myGui.appendResult("Skipped a malformed dataset line (not enough columns).");
+							}
+							continue;
+						}
 
-//						referenceUser = info[0];
-//						Long tweetId = Long.valueOf(info[1]);
-//						String tweetDate = info[2];
-//						String currentUserName = info[4];
-//						String tweetText = info[5];
-//						boolean dateRangeValid = true;
-//
-//						//dateRangeValid = checkDateRange(tweetDate,"2007-01-01","2017-01-01");
-//						dateRangeValid = checkDateRange(tweetDate,beginDate,endDate);
-//
-//						Tweet currentTweet = new Tweet(tweetText,tweetId,tweetDate,currentUserName);
+						try
+						{
 						followeeName = info[0];
 						referenceUser = info[0];
 						tweetId = Long.valueOf(info[1]);
@@ -2818,6 +2830,15 @@ public class ControllerAgent extends GuiAgent {
 							
 							if (!userFolloweeMap.containsKey(currentUserName))
 								userFolloweeMap.put(currentUserName,followeeName);
+						}
+						}
+						catch (RuntimeException parseError)
+						{
+							System.err.println("Skipping malformed dataset line: " + parseError.getMessage());
+							if (myGui != null)
+							{
+								myGui.appendResult("Skipped a malformed dataset line: " + parseError.getMessage());
+							}
 						}
 
 					}

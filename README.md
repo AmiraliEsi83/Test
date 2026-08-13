@@ -1,6 +1,10 @@
-# DSMP Simulator Version 3.1
+# DSMP Simulator Version 3.2
 
-The DSMP Social Network Simulator can be used by researchers and users who want to benefit from the simple UI provided in this simulation tool to examine and compare different ML-based applications in a simulated social network environment. 
+The DSMP Social Network Simulator can be used by researchers and students who want to benefit from the simple UI provided in this simulation tool to examine and compare different ML-based applications in a simulated social network environment.
+
+**Student user guide:** see [USER_GUIDE.md](USER_GUIDE.md) for dataset import, Data Balancing (Section 7.2), MLP settings, Performance Measurement, and troubleshooting.
+
+v3.2 adds a visible **Data Balancing** control and bounded **MLP** training (default max 100 iterations) so long runs stay predictable and the GUI can report progress. 
 
 ## Prerequisites
 
@@ -142,4 +146,7 @@ Example: python build.py setup -v
     * Run the command with the `-v` (verbose) flag (e.g., `python build.py setup -v`) to see detailed output which might indicate the source of the problem.
     * Try cleaning and rebuilding: `python build.py clean` followed by `python build.py setup`.
     * Ensure you have a stable internet connection for downloading dependencies.
+* **Cannot find Data Balancing:** Open **File -> Dataset From Text**. The import dialog has a **Data Balancing** panel. The same setting also appears on the Performance Measurement panel as **Data Balancing**. See USER_GUIDE.md Section 7.2.
+* **MLP seems frozen or takes a long time:** Training runs in a background agent thread. Watch **Current Progress** and the results pane for iteration updates. Default Legacy Neuroph MLP stops after **100 iterations**. Increase or decrease this in **MLP Settings**. For a quicker check, use **SVM**.
+* **Invalid dataset / model failed:** The GUI shows an error dialog. Technical details remain in the console. Re-load the file, press **Get Users**, then **Initialize** before running again.
 

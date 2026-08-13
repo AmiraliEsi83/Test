@@ -34,6 +34,7 @@ final class MlpSettingsDialog extends JDialog
     private final JSpinner hiddenNeurons;
     private final JSpinner learningRate;
     private final JSpinner maxError;
+    private final JSpinner maxIterations;
     private final JSpinner sparseEpochs;
     private final JSpinner sparseL2;
     private final JSpinner fedProxMu;
@@ -56,6 +57,7 @@ final class MlpSettingsDialog extends JDialog
         hiddenNeurons = new JSpinner(new SpinnerNumberModel(settings.getMlpHiddenNeurons(), 1, 512, 1));
         learningRate = new JSpinner(new SpinnerNumberModel(settings.getMlpLearningRate(), 0.0001, 1.0, 0.01));
         maxError = new JSpinner(new SpinnerNumberModel(settings.getMlpMaxError(), 0.000001, 1.0, 0.001));
+        maxIterations = new JSpinner(new SpinnerNumberModel(settings.getMlpMaxIterations(), 1, 2000, 10));
         sparseEpochs = new JSpinner(new SpinnerNumberModel(settings.getMlpSparseEpochs(), 1, 500, 1));
         sparseL2 = new JSpinner(new SpinnerNumberModel(settings.getMlpSparseL2(), 0.0, 1.0, 0.0001));
         fedProxMu = new JSpinner(new SpinnerNumberModel(settings.getMlpFedProxMu(), 0.0, 10.0, 0.01));
@@ -67,7 +69,7 @@ final class MlpSettingsDialog extends JDialog
         root.add(buildButtons(), BorderLayout.SOUTH);
         setContentPane(root);
         pack();
-        setMinimumSize(new Dimension(560, 500));
+        setMinimumSize(new Dimension(560, 540));
         setLocationRelativeTo(owner);
     }
 
@@ -81,8 +83,9 @@ final class MlpSettingsDialog extends JDialog
     private Component buildHeader()
     {
         JTextArea text = new JTextArea(
-                "Default keeps the original v2.5 Neuroph behavior: one hidden layer, "
-                + "10 hidden neurons, learning rate 0.1, max error 0.01.\n"
+                "Default keeps the original v2.5 Neuroph network shape: one hidden layer, "
+                + "10 hidden neurons, learning rate 0.1, max error 0.01, and a safe cap of 100 iterations.\n"
+                + "Without an iteration cap, Neuroph can train until the max-error target is reached, which may never happen on large datasets.\n"
                 + "Sparse Federated MLP is opt-in and experimental for large sparse TF-IDF data.");
         text.setEditable(false);
         text.setOpaque(true);
@@ -109,9 +112,11 @@ final class MlpSettingsDialog extends JDialog
         addRow(form, c, 3, "Hidden neurons per layer", hiddenNeurons);
         addRow(form, c, 4, "Learning rate", learningRate);
         addRow(form, c, 5, "Max error", maxError);
-        addRow(form, c, 6, "Sparse epochs", sparseEpochs);
-        addRow(form, c, 7, "Sparse L2", sparseL2);
-        addRow(form, c, 8, "Sparse FedProx mu", fedProxMu);
+        addRow(form, c, 6, "Max iterations", maxIterations);
+        addRow(form, c, 7, "Sparse epochs", sparseEpochs);
+        addRow(form, c, 8, "Sparse L2", sparseL2);
+        addRow(form, c, 9, "Sparse FedProx mu", fedProxMu);
+        maxIterations.setToolTipText("Stops Legacy Neuroph MLP after this many epochs even if the max-error target has not been reached. Default 100.");
         return form;
     }
 
@@ -156,6 +161,7 @@ final class MlpSettingsDialog extends JDialog
         hiddenNeurons.setValue(Integer.valueOf(settings.getMlpHiddenNeurons()));
         learningRate.setValue(Double.valueOf(settings.getMlpLearningRate()));
         maxError.setValue(Double.valueOf(settings.getMlpMaxError()));
+        maxIterations.setValue(Integer.valueOf(settings.getMlpMaxIterations()));
         sparseEpochs.setValue(Integer.valueOf(settings.getMlpSparseEpochs()));
         sparseL2.setValue(Double.valueOf(settings.getMlpSparseL2()));
         fedProxMu.setValue(Double.valueOf(settings.getMlpFedProxMu()));
@@ -172,6 +178,7 @@ final class MlpSettingsDialog extends JDialog
         settings.setMlpHiddenNeurons(((Number)hiddenNeurons.getValue()).intValue());
         settings.setMlpLearningRate(((Number)learningRate.getValue()).doubleValue());
         settings.setMlpMaxError(((Number)maxError.getValue()).doubleValue());
+        settings.setMlpMaxIterations(((Number)maxIterations.getValue()).intValue());
         settings.setMlpSparseEpochs(((Number)sparseEpochs.getValue()).intValue());
         settings.setMlpSparseL2(((Number)sparseL2.getValue()).doubleValue());
         settings.setMlpFedProxMu(((Number)fedProxMu.getValue()).doubleValue());
@@ -197,6 +204,7 @@ final class MlpSettingsDialog extends JDialog
                 || defaults.getMlpHiddenNeurons() != settings.getMlpHiddenNeurons()
                 || Double.compare(defaults.getMlpLearningRate(), settings.getMlpLearningRate()) != 0
                 || Double.compare(defaults.getMlpMaxError(), settings.getMlpMaxError()) != 0
+                || defaults.getMlpMaxIterations() != settings.getMlpMaxIterations()
                 || defaults.getMlpSparseEpochs() != settings.getMlpSparseEpochs()
                 || Double.compare(defaults.getMlpSparseL2(), settings.getMlpSparseL2()) != 0
                 || Double.compare(defaults.getMlpFedProxMu(), settings.getMlpFedProxMu()) != 0;

@@ -5,8 +5,9 @@ import java.io.Serializable;
 /**
  * MLP-only advanced settings for the v2.5fix UI.
  *
- * The default object intentionally preserves the legacy Neuroph MLP behavior:
+ * The default object preserves the legacy Neuroph MLP shape:
  * one hidden layer, ten hidden neurons, learning rate 0.1, max error 0.01.
+ * Max iterations default to 100 so student runs cannot train without a bound.
  */
 final class AlgorithmParameterSettings implements Serializable
 {
@@ -21,6 +22,7 @@ final class AlgorithmParameterSettings implements Serializable
     private int mlpHiddenNeurons;
     private double mlpLearningRate;
     private double mlpMaxError;
+    private int mlpMaxIterations;
     private int mlpSparseEpochs;
     private double mlpSparseL2;
     private double mlpFedProxMu;
@@ -59,6 +61,8 @@ final class AlgorithmParameterSettings implements Serializable
                 "dsmp.mlp.learningRate", settings.mlpLearningRate);
         settings.mlpMaxError = doubleProperty(
                 "dsmp.mlp.maxError", settings.mlpMaxError);
+        settings.mlpMaxIterations = intProperty(
+                "dsmp.mlp.maxIterations", settings.mlpMaxIterations);
         settings.mlpSparseEpochs = intProperty(
                 "dsmp.mlp.sparseEpochs", settings.mlpSparseEpochs);
         settings.mlpSparseL2 = doubleProperty(
@@ -78,6 +82,7 @@ final class AlgorithmParameterSettings implements Serializable
         copy.mlpHiddenNeurons = mlpHiddenNeurons;
         copy.mlpLearningRate = mlpLearningRate;
         copy.mlpMaxError = mlpMaxError;
+        copy.mlpMaxIterations = mlpMaxIterations;
         copy.mlpSparseEpochs = mlpSparseEpochs;
         copy.mlpSparseL2 = mlpSparseL2;
         copy.mlpFedProxMu = mlpFedProxMu;
@@ -92,6 +97,7 @@ final class AlgorithmParameterSettings implements Serializable
         mlpHiddenNeurons = 10;
         mlpLearningRate = 0.1;
         mlpMaxError = 0.01;
+        mlpMaxIterations = 100;
         mlpSparseEpochs = 8;
         mlpSparseL2 = 0.0001;
         mlpFedProxMu = 0.0;
@@ -120,6 +126,10 @@ final class AlgorithmParameterSettings implements Serializable
         {
             throw new IllegalArgumentException("Max error must be greater than 0 and at most 1.");
         }
+        if (mlpMaxIterations < 1 || mlpMaxIterations > 2000)
+        {
+            throw new IllegalArgumentException("Max iterations must be between 1 and 2000.");
+        }
         if (mlpSparseEpochs < 1 || mlpSparseEpochs > 500)
         {
             throw new IllegalArgumentException("Sparse epochs must be between 1 and 500.");
@@ -146,6 +156,8 @@ final class AlgorithmParameterSettings implements Serializable
     void setMlpLearningRate(double value) { mlpLearningRate = value; }
     double getMlpMaxError() { return mlpMaxError; }
     void setMlpMaxError(double value) { mlpMaxError = value; }
+    int getMlpMaxIterations() { return mlpMaxIterations; }
+    void setMlpMaxIterations(int value) { mlpMaxIterations = value; }
     int getMlpSparseEpochs() { return mlpSparseEpochs; }
     void setMlpSparseEpochs(int value) { mlpSparseEpochs = value; }
     double getMlpSparseL2() { return mlpSparseL2; }
@@ -179,7 +191,8 @@ final class AlgorithmParameterSettings implements Serializable
                 + ", " + effective.mlpHiddenLayers + " hidden layer(s)"
                 + ", " + effective.mlpHiddenNeurons + " neuron(s)/layer"
                 + ", rate " + effective.mlpLearningRate
-                + ", max error " + effective.mlpMaxError;
+                + ", max error " + effective.mlpMaxError
+                + ", max iterations " + effective.mlpMaxIterations;
     }
 
     private static int intProperty(String name, int defaultValue)
