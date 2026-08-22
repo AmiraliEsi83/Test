@@ -1,0 +1,30 @@
+{
+  "files": {
+    "main.css": "/Test/static/css/main.dc655446.css",
+    "main.js": "/Test/static/js/main.83497c81.js",
+    "static/js/415.4d6acbeb.chunk.js": "/Test/static/js/415.4d6acbeb.chunk.js",
+    "static/js/787.1ed0c42c.chunk.js": "/Test/static/js/787.1ed0c42c.chunk.js",
+    "static/media/backlog.png": "/Test/static/media/backlog.e3463b5385d201327752.png",
+    "static/media/Nasaapi.png": "/Test/static/media/Nasaapi.54acd39404a351213069.png",
+    "static/media/home-main.svg": "/Test/static/media/home-main.541f8179af8209ce03ccf2178fe62dbf.svg",
+    "static/media/about.png": "/Test/static/media/about.aee0f771fbfc1e7b8fa8.png",
+    "static/media/AmirResume.pdf": "/Test/static/media/AmirResume.1cb7dee0112c8e898f76.pdf",
+    "static/media/Bank.png": "/Test/static/media/Bank.235eecb67dad9ac5c984.png",
+    "static/media/GreenTune.png": "/Test/static/media/GreenTune.d1805cfb15fa05c5181f.png",
+    "static/media/Medmatch.png": "/Test/static/media/Medmatch.e8c0a6f71a076df88b33.png",
+    "static/media/Nextjs.png": "/Test/static/media/Nextjs.cae8027c3de0e7397f83.png",
+    "static/media/logo.png": "/Test/static/media/logo.587f49c36fdf2d45b7d0.png",
+    "static/media/home-bg.jpg": "/Test/static/media/home-bg.dc52d5d40a40b13154b0.jpg",
+    "static/media/avatar.svg": "/Test/static/media/avatar.5852f40fbb38aa284829fa3fb7722225.svg",
+    "static/media/pre.svg": "/Test/static/media/pre.d4812f51c8c80976eaab.svg",
+    "index.html": "/Test/index.html",
+    "main.dc655446.css.map": "/Test/static/css/main.dc655446.css.map",
+    "main.83497c81.js.map": "/Test/static/js/main.83497c81.js.map",
+    "415.4d6acbeb.chunk.js.map": "/Test/static/js/415.4d6acbeb.chunk.js.map",
+    "787.1ed0c42c.chunk.js.map": "/Test/static/js/787.1ed0c42c.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.dc655446.css",
+    "static/js/main.83497c81.js"
+  ]
+}
