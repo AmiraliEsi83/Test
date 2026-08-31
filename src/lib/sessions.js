@@ -40,21 +40,13 @@ export function nextLondonOpen(date = new Date()) {
   const p = zonedParts(date);
   const openMin = 8 * 60;
   const nowMin = p.hour * 60 + p.minute + p.second / 60;
-  const d = new Date(date.getTime());
-  let addDays = 0;
-  if (nowMin >= openMin) addDays = 1;
-  d.setUTCDate(d.getUTCDate() + addDays);
+  let addDays = nowMin >= openMin ? 1 : 0;
   for (let i = 0; i < 8; i += 1) {
     const probe = new Date(date.getTime() + (addDays + i) * 86400000);
-    probe.setMilliseconds(0);
-    if (!isWeekendLondon(probe) || i === 0) {
-      const zp = zonedParts(probe);
-      if (zp.weekday === "Sat") continue;
-      if (zp.weekday === "Sun") continue;
-      const target = new Date(date.getTime());
-      const deltaMin = (addDays + i) * 1440 + (openMin - nowMin);
-      return new Date(date.getTime() + deltaMin * 60000);
-    }
+    const zp = zonedParts(probe);
+    if (zp.weekday === "Sat" || zp.weekday === "Sun") continue;
+    const deltaMin = (addDays + i) * 1440 + (openMin - nowMin);
+    return new Date(date.getTime() + deltaMin * 60000);
   }
   return new Date(date.getTime() + (openMin - nowMin + 1440) * 60000);
 }

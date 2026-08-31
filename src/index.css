@@ -304,7 +304,7 @@ h3 {
 .section-head {
   display: flex;
   justify-content: space-between;
-  align-items: end;
+    align-items: flex-end;
   gap: 16px;
   margin-bottom: 22px;
 }

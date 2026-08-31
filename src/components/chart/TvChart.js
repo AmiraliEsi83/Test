@@ -6,8 +6,9 @@ export default function TvChart({ symbol }) {
   const tv = INSTRUMENTS[symbol]?.tv || "FX:EURUSD";
 
   useEffect(() => {
-    if (!ref.current) return undefined;
-    ref.current.innerHTML = "";
+    const node = ref.current;
+    if (!node) return undefined;
+    node.innerHTML = "";
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.async = true;
@@ -27,9 +28,9 @@ export default function TvChart({ symbol }) {
       calendar: false,
       support_host: "https://www.tradingview.com",
     });
-    ref.current.appendChild(script);
+    node.appendChild(script);
     return () => {
-      if (ref.current) ref.current.innerHTML = "";
+      node.innerHTML = "";
     };
   }, [tv]);
 

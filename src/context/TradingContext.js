@@ -270,7 +270,7 @@ export function TradingProvider({ children }) {
       });
       return pos;
     },
-    [activeBrokerId, brokers, pushAlert, symbol]
+    [activeBrokerId, pushAlert, symbol]
   );
 
   const maybeAuto = useCallback(
@@ -351,7 +351,7 @@ export function TradingProvider({ children }) {
         setPulse(pulseNow);
         if (
           pulseNow.signal &&
-          Date.now() - firedRef.current.pulse > 4 * 60 * 1000
+          Date.now() - firedRef.current.pulse > 8 * 60 * 1000
         ) {
           firedRef.current.pulse = Date.now();
           pushAlert({
@@ -483,7 +483,7 @@ export function TradingProvider({ children }) {
         const pnl = pnlUsd(p.symbol, p.side, p.entry, px, p.lots);
         return { ...p, mark: px, pnl };
       }),
-    [positions, lastPrice, candles]
+    [positions, lastPrice]
   );
 
   const value = useMemo(

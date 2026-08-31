@@ -1,7 +1,7 @@
 {
   "name": "harsi-terminal",
   "version": "1.0.0",
-  "homepage": "https://AmiraliEsi83.github.io/Test",
+  "homepage": ".",
   "private": true,
   "dependencies": {
     "@testing-library/jest-dom": "^5.16.2",

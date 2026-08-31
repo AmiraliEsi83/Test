@@ -3,7 +3,13 @@ import { BROKER_CATALOG, validateBrokerFields } from "../../lib/brokers";
 
 export default function BrokerModal({ type, onClose, onConnect }) {
   const spec = BROKER_CATALOG.find((b) => b.type === type);
-  const [values, setValues] = useState({});
+  const [values, setValues] = useState(() => {
+    const init = {};
+    spec?.fields.forEach((f) => {
+      if (f.type === "select" && f.options?.[0]) init[f.key] = f.options[0];
+    });
+    return init;
+  });
   const [err, setErr] = useState("");
 
   if (!spec) return null;
