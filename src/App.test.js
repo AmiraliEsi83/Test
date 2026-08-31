@@ -1,10 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import App from "./App";
 
-jest.mock("./components/Particle", () => () => null);
-window.scrollTo = jest.fn();
-
-test("renders home introduction", () => {
+test("renders HARSI landing", () => {
   render(<App />);
-  expect(screen.getAllByText(/Amir Ali Eslami/i).length).toBeGreaterThan(0);
+  expect(screen.getByText("HARSI")).toBeInTheDocument();
+  expect(screen.getByText(/with Harsi alerts/i)).toBeInTheDocument();
 });
