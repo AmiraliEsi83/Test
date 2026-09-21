@@ -69,7 +69,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <button
           className="linkish"
           onClick={async () => {
-            await api("/api/auth/logout", { method: "POST" });
+            await api("/api/auth/logout", { method: "POST", body: "{}" });
             router.push("/");
           }}
         >
@@ -106,6 +106,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span>
               Today <b className={dash?.todayPnl >= 0 ? "up" : "down"}>{dash ? `$${Number(dash.todayPnl).toFixed(0)}` : "—"}</b>
             </span>
+            <button
+              className="btn btn-sm btn-ghost"
+              onClick={async () => {
+                await api("/api/auth/logout", { method: "POST", body: "{}" });
+                router.push("/");
+              }}
+            >
+              Log out
+            </button>
           </div>
         </header>
         <div className="main">

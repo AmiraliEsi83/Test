@@ -33,10 +33,10 @@ export default function LoginPage() {
         >
           <h2>Sign in</h2>
           <p className="muted">Session cookies are httpOnly. Demo seats exist only when DEMO_MODE is on.</p>
-          <label>Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-          <label>Password</label>
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
+          <label htmlFor="email">Email</label>
+          <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+          <label htmlFor="password">Password</label>
+          <input id="password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
           {err && <div className="err">{err}</div>}
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 18 }} type="submit">
             Continue

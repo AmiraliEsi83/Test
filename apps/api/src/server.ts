@@ -135,6 +135,14 @@ export async function buildServer() {
     origin: [WEB_ORIGIN, "http://127.0.0.1:3000"],
     credentials: true,
   });
+  app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+    if (!body) return done(null, {});
+    try {
+      done(null, JSON.parse(String(body)));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
   app.setErrorHandler((err, req, reply) => {
     const status = (err as { statusCode?: number }).statusCode || 400;
     reply.code(status >= 400 ? status : 400).send({ error: (err as Error).message || "Request failed" });

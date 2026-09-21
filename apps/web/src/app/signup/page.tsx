@@ -30,12 +30,12 @@ export default function SignupPage() {
         >
           <h2>Create account</h2>
           <p className="muted">New accounts start on Free: chart, watchlist, delayed signals, paper trading.</p>
-          <label>Name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
-          <label>Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-          <label>Password</label>
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required minLength={8} />
+          <label htmlFor="name">Name</label>
+          <input id="name" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} />
+          <label htmlFor="email">Email</label>
+          <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
+          <label htmlFor="password">Password</label>
+          <input id="password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required minLength={8} />
           {err && <div className="err">{err}</div>}
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 18 }} type="submit">
             Create account

@@ -1,10 +1,12 @@
 const API = "";
 
 export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+  if (init.body) headers["Content-Type"] = headers["Content-Type"] || "application/json";
   const res = await fetch(`${API}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init.headers || {}) },
     ...init,
+    headers,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
