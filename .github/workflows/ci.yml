@@ -13,7 +13,7 @@ jobs:
       - run: npm install
       - run: |
           cat > .env << 'EOF'
-          DATABASE_URL="file:./prisma/ci.db"
+          DATABASE_URL="file:./ci.db"
           AUTH_SECRET="ci-secret-ci-secret-ci-secret-32"
           ENCRYPTION_KEY="ci-encryption-key"
           DEMO_MODE="true"

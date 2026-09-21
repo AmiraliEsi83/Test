@@ -4,7 +4,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: file:./prisma/dev.db
+      DATABASE_URL: file:./dev.db
       AUTH_SECRET: ${AUTH_SECRET:-dev-secret-dev-secret-dev-secret}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key}
       DEMO_MODE: "true"

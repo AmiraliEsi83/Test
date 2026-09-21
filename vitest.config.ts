@@ -7,7 +7,7 @@ export default defineConfig({
     include: ["packages/**/*.test.ts", "tests/**/*.test.ts"],
     globalSetup: "./tests/global-setup.ts",
     env: {
-      DATABASE_URL: "file:./prisma/test.db",
+      DATABASE_URL: "file:./test.db",
       AUTH_SECRET: "test-secret-test-secret-test-secret",
       ENCRYPTION_KEY: "test-encryption-key",
       DEMO_MODE: "true",

@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import fs from "fs";
 
 if (!fs.existsSync(".env")) {
-  const env = `DATABASE_URL="file:./prisma/dev.db"
+  const env = `DATABASE_URL="file:./dev.db"
 AUTH_SECRET="${randomBytes(32).toString("hex")}"
 ENCRYPTION_KEY="${randomBytes(24).toString("hex")}"
 DEMO_MODE="true"

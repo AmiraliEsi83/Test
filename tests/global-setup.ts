@@ -5,6 +5,6 @@ export default function setup() {
   fs.rmSync("prisma/test.db", { force: true });
   execSync("npx prisma migrate deploy", {
     stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: "file:./prisma/test.db" },
+    env: { ...process.env, DATABASE_URL: "file:./test.db" },
   });
 }

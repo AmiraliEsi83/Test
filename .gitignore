@@ -18,4 +18,5 @@ blob-report
 *.log
 .eslintcache
 .vercel
-.tsbuildinfo
+*.tsbuildinfo
+prisma/prisma/

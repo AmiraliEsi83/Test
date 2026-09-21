@@ -14,7 +14,7 @@ ARG AUTH_SECRET=build-secret-build-secret-build-secret
 ARG ENCRYPTION_KEY=build-encryption-key
 ENV AUTH_SECRET=$AUTH_SECRET
 ENV ENCRYPTION_KEY=$ENCRYPTION_KEY
-ENV DATABASE_URL=file:./prisma/build.db
+ENV DATABASE_URL=file:./build.db
 ENV DEMO_MODE=false
 RUN npx prisma generate && npx prisma migrate deploy && npm run build
 EXPOSE 3000
