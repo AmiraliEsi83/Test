@@ -66,17 +66,22 @@ export function atr(candles, period = 14) {
   return out;
 }
 
-export function computeHarsi(symbol, price, asian) {
+export function computeHarsi(symbol, price, asian, bands) {
   if (!asian || asian.high == null || asian.low == null) {
     return { value: 0, zone: "flat", mid: price, rangePips: 0 };
   }
+  const b = bands || {};
+  const buyMin = b.buyMin ?? -30;
+  const buyMax = b.buyMax ?? -15;
+  const sellMin = b.sellMin ?? 15;
+  const sellMax = b.sellMax ?? 30;
   const mid = (asian.high + asian.low) / 2;
   const value = toPips(symbol, price - mid);
   let zone = "flat";
-  if (value <= -15 && value >= -30) zone = "buy";
-  else if (value >= 15 && value <= 30) zone = "sell";
-  else if (value < -30) zone = "extended-buy";
-  else if (value > 30) zone = "extended-sell";
+  if (value <= buyMax && value >= buyMin) zone = "buy";
+  else if (value >= sellMin && value <= sellMax) zone = "sell";
+  else if (value < buyMin) zone = "extended-buy";
+  else if (value > sellMax) zone = "extended-sell";
   return {
     value,
     zone,
@@ -93,8 +98,16 @@ export function evaluateLondonHarsi({
   asian,
   inWindow,
   fired,
+  config,
 }) {
-  const harsi = computeHarsi(symbol, price, asian);
+  const cfg = config || {};
+  const buyMin = cfg.buyMin ?? -30;
+  const buyMax = cfg.buyMax ?? -15;
+  const sellMin = cfg.sellMin ?? 15;
+  const sellMax = cfg.sellMax ?? 30;
+  const slPips = cfg.slPips ?? 22;
+  const tpPips = cfg.tpPips ?? 34;
+  const harsi = computeHarsi(symbol, price, asian, { buyMin, buyMax, sellMin, sellMax });
   if (!inWindow) {
     return { harsi, signal: null };
   }
@@ -104,10 +117,9 @@ export function evaluateLondonHarsi({
       signal: {
         algorithm: "london-harsi",
         side: "buy",
-        reason:
-          "First Harsi print inside −15 to −30 during the London T-15 window. Mean-reversion long into the London open.",
-        slPips: 22,
-        tpPips: 34,
+        reason: `First Harsi print inside ${buyMin} to ${buyMax} during the London T-15 window. Mean-reversion long into the London open.`,
+        slPips,
+        tpPips,
       },
     };
   }
@@ -117,19 +129,20 @@ export function evaluateLondonHarsi({
       signal: {
         algorithm: "london-harsi",
         side: "sell",
-        reason:
-          "First Harsi print inside +15 to +30 during the London T-15 window. Mean-reversion short into the London open.",
-        slPips: 22,
-        tpPips: 34,
+        reason: `First Harsi print inside +${sellMin} to +${sellMax} during the London T-15 window. Mean-reversion short into the London open.`,
+        slPips,
+        tpPips,
       },
     };
   }
   return { harsi, signal: null };
 }
 
-export function evaluatePulseConfluence({ candles, symbol }) {
+export function evaluatePulseConfluence({ candles, symbol, config }) {
+  const minScore = config?.minScore ?? 74;
+  const minEdge = config?.minEdge ?? 18;
   if (!candles || candles.length < 40) {
-    return { score: 50, side: null, signal: null, reasons: [], rsi: 50, macdHist: 0 };
+    return { score: 50, side: null, signal: null, reasons: [], checks: [], rsi: 50, macdHist: 0 };
   }
   const closes = candles.map((c) => c.close);
   const e9 = ema(closes, 9);
@@ -204,7 +217,7 @@ export function evaluatePulseConfluence({ candles, symbol }) {
   const score = Math.round(50 + (long - short) / 2);
 
   let signal = null;
-  if (long >= 74 && long - short >= 18) {
+  if (long >= minScore && long - short >= minEdge) {
     signal = {
       algorithm: "pulse-confluence",
       side: "buy",
@@ -212,7 +225,7 @@ export function evaluatePulseConfluence({ candles, symbol }) {
       slPips: Math.max(12, Math.round(toPips(symbol, atrNow) * 1.4)),
       tpPips: Math.max(18, Math.round(toPips(symbol, atrNow) * 2.1)),
     };
-  } else if (short >= 74 && short - long >= 18) {
+  } else if (short >= minScore && short - long >= minEdge) {
     signal = {
       algorithm: "pulse-confluence",
       side: "sell",
@@ -222,6 +235,19 @@ export function evaluatePulseConfluence({ candles, symbol }) {
     };
   }
 
+  const emaBull = e9[i] > e21[i];
+  const macdBull = macdNow > 0 && macdNow >= macdPrev;
+  const macdBear = macdNow < 0 && macdNow <= macdPrev;
+  const checks = [
+    { label: "EMA 9 > EMA 21", pass: emaBull, value: `${e9[i].toFixed(5)} vs ${e21[i].toFixed(5)}`, side: "buy" },
+    { label: "EMA 9 < EMA 21", pass: !emaBull, value: `${e9[i].toFixed(5)} vs ${e21[i].toFixed(5)}`, side: "sell" },
+    { label: `RSI ${rsiNow.toFixed(1)}`, pass: signal ? (signal.side === "buy" ? ((rsiNow >= 45) || (rsiNow <= 35)) : ((rsiNow <= 55) || (rsiNow >= 65))) : ((rsiNow > 50) === emaBull || Math.abs(rsiNow - 50) > 18), value: rsiNow.toFixed(1) },
+    { label: "MACD bullish expansion", pass: macdBull, value: macdNow.toFixed(6), side: "buy" },
+    { label: "MACD bearish expansion", pass: macdBear, value: macdNow.toFixed(6), side: "sell" },
+    { label: `ATR expansion ${volExpand.toFixed(2)}x`, pass: volExpand > 1.15, value: `${volExpand.toFixed(2)}x` },
+    { label: "Trend filter", pass: Math.abs(trendPips) > 1 || score > 60, value: `${trendPips.toFixed(1)} pips` },
+  ];
+
   return {
     score,
     long: Math.round(long),
@@ -229,11 +255,13 @@ export function evaluatePulseConfluence({ candles, symbol }) {
     side: signal ? signal.side : null,
     signal,
     reasons,
+    checks,
     rsi: rsiNow,
     macdHist: macdNow,
     ema9: e9[i],
     ema21: e21[i],
     atr: atrNow,
+    atrRatio: volExpand,
     price,
     pip: inst?.pip,
     trendPips,

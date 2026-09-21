@@ -73,6 +73,30 @@ export const INSTRUMENTS = {
     live: true,
     binance: "ethusdt",
   },
+  SPY: {
+    id: "SPY",
+    label: "SPY",
+    pip: 0.01,
+    digits: 2,
+    base: 592.4,
+    vol: 0.18,
+    kind: "equity",
+    tv: "AMEX:SPY",
+    lotSize: 1,
+    sessionPair: false,
+  },
+  QQQ: {
+    id: "QQQ",
+    label: "QQQ",
+    pip: 0.01,
+    digits: 2,
+    base: 508.9,
+    vol: 0.22,
+    kind: "equity",
+    tv: "NASDAQ:QQQ",
+    lotSize: 1,
+    sessionPair: false,
+  },
 };
 
 export const INSTRUMENT_LIST = Object.values(INSTRUMENTS);
@@ -102,5 +126,16 @@ export function pnlUsd(symbol, side, entry, current, lots) {
   const move = (current - entry) * dir;
   if (inst.kind === "crypto") return move * lots;
   if (inst.kind === "metal") return (move / inst.pip) * lots * 1;
+  if (inst.kind === "equity") return move * lots * 100;
   return (move / inst.pip) * lots * 10;
+}
+
+export function spreadCostUsd(symbol, lots) {
+  const inst = INSTRUMENTS[symbol];
+  if (!inst) return 0;
+  const spreadPips = inst.kind === "crypto" ? 0.5 : inst.kind === "equity" ? 0.3 : 1.2;
+  if (inst.kind === "crypto") return spreadPips * lots;
+  if (inst.kind === "metal") return spreadPips * lots * 1;
+  if (inst.kind === "equity") return 0.5 * lots;
+  return spreadPips * lots * 10 * 0.1;
 }

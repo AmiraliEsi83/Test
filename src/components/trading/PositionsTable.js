@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { useTrading } from "../../context/TradingContext";
 import { formatPrice } from "../../lib/instruments";
 
@@ -9,29 +10,18 @@ export default function PositionsTable() {
     <div className="bottom-strip">
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
         <strong>Positions</strong>
-        <span className="faint">{positions.length} open · {closed.length} closed</span>
+        <span className="faint">{positions.length} open · {closed.length} closed · <Link to="/positions">manage →</Link> · <Link to="/orders">orders →</Link> · <Link to="/history">history →</Link></span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="pos-table">
           <thead>
             <tr>
-              <th>Symbol</th>
-              <th>Side</th>
-              <th>Lots</th>
-              <th>Entry</th>
-              <th>Mark</th>
-              <th>P&L</th>
-              <th>Broker</th>
-              <th></th>
+              <th>Symbol</th><th>Side</th><th>Lots</th><th>Entry</th><th>Mark</th><th>P&L</th><th>Broker</th><th>Mode</th><th></th>
             </tr>
           </thead>
           <tbody>
             {positions.length === 0 && (
-              <tr>
-                <td colSpan="8" className="faint">
-                  No open risk. Harsi and Pulse alerts can open from the ticket.
-                </td>
-              </tr>
+              <tr><td colSpan="9" className="faint">No open risk. HARSI and Pulse alerts can open from the ticket or Signal Center.</td></tr>
             )}
             {positions.map((p) => (
               <tr key={p.id}>
@@ -40,16 +30,10 @@ export default function PositionsTable() {
                 <td>{p.lots}</td>
                 <td>{formatPrice(p.symbol, p.entry)}</td>
                 <td>{formatPrice(p.symbol, p.mark)}</td>
-                <td className={p.pnl >= 0 ? "up" : "down"}>
-                  {p.pnl >= 0 ? "+" : ""}
-                  {p.pnl.toFixed(2)}
-                </td>
+                <td className={p.pnl >= 0 ? "up" : "down"}>{p.pnl >= 0 ? "+" : ""}{p.pnl.toFixed(2)}</td>
                 <td>{p.brokerName}</td>
-                <td>
-                  <button className="btn btn-ghost btn-sm" onClick={() => closePosition(p.id)}>
-                    Close
-                  </button>
-                </td>
+                <td><span className={`badge ${p.mode === "live" ? "badge-sell" : "badge-teal"}`}>{(p.mode || "paper").toUpperCase()}</span></td>
+                <td><button className="btn btn-ghost btn-sm" onClick={() => closePosition(p.id)}>Close</button></td>
               </tr>
             ))}
           </tbody>

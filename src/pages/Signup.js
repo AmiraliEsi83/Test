@@ -26,7 +26,7 @@ export default function Signup() {
       <form className="auth-card" onSubmit={submit}>
         <span className="kicker">Create seat</span>
         <h1>Open your HARSI desk</h1>
-        <p className="muted">Starts on Scout. Upgrade to unlock live alerts and broker routing.</p>
+        <p className="muted">Starts on Free. Upgrade to unlock live alerts and broker routing.</p>
         {err && <div className="error">{err}</div>}
         <div className="field">
           <label>Name</label>

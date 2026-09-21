@@ -15,12 +15,12 @@ export default function Alerts() {
           <h2>Open & close alerts</h2>
           <p>
             Subscribed seats get Harsi, Pulse, fill, stop, and take-profit
-            alerts. Scout sees the lock, not the print.
+            alerts. Free sees the lock, not the print.
           </p>
         </div>
         {!plan.alerts && (
           <Link to="/pricing" className="btn btn-primary">
-            Unlock Operator
+            Unlock Trader
           </Link>
         )}
       </div>

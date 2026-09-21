@@ -1,6 +1,21 @@
 import { INSTRUMENTS } from "./instruments";
 import { getSessionState } from "./sessions";
 
+export const MarketDataSource = {
+  DEMO: "demo",
+  BINANCE: "binance",
+};
+
+export function activeMarketSource(symbol) {
+  const inst = INSTRUMENTS[symbol];
+  if (inst?.live && (process.env.REACT_APP_LIVE_FEED || "true") !== "false") return MarketDataSource.BINANCE;
+  return MarketDataSource.DEMO;
+}
+
+export function marketSourceLabel(symbol) {
+  return activeMarketSource(symbol) === MarketDataSource.BINANCE ? "LIVE · Binance" : "SIMULATED · demo feed";
+}
+
 function mulberry32(a) {
   return function rng() {
     let t = (a += 0x6d2b79f5);
@@ -12,6 +27,25 @@ function mulberry32(a) {
 
 function hashSymbol(symbol) {
   return symbol.split("").reduce((s, c) => s + c.charCodeAt(0) * 13, 42);
+}
+
+export function resample(candles1m, timeframe) {
+  const mins = timeframe === "1m" ? 1 : timeframe === "5m" ? 5 : timeframe === "15m" ? 15 : timeframe === "1h" ? 60 : 1;
+  if (mins === 1) return candles1m;
+  const out = [];
+  for (let i = 0; i < candles1m.length; i += mins) {
+    const chunk = candles1m.slice(i, i + mins);
+    if (!chunk.length) continue;
+    out.push({
+      time: chunk[0].time,
+      open: chunk[0].open,
+      high: Math.max(...chunk.map((c) => c.high)),
+      low: Math.min(...chunk.map((c) => c.low)),
+      close: chunk[chunk.length - 1].close,
+      volume: chunk.reduce((s, c) => s + (c.volume || 0), 0),
+    });
+  }
+  return out;
 }
 
 export function generateHistory(symbol, bars = 420, now = Date.now()) {
@@ -65,6 +99,7 @@ export function generateHistory(symbol, bars = 420, now = Date.now()) {
     asian,
     lastPrice: last.close,
     lastTime: last.time,
+    source: MarketDataSource.DEMO,
   };
 }
 
@@ -125,37 +160,22 @@ export function connectBinance(symbol, onTrade) {
   let closed = false;
   const open = () => {
     if (closed) return;
-    ws = new WebSocket(
-      `wss://stream.binance.com:9443/ws/${inst.binance}@trade`
-    );
+    try {
+      ws = new WebSocket(`wss://stream.binance.com:9443/ws/${inst.binance}@trade`);
+    } catch (e) {
+      return;
+    }
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
         const price = Number(msg.p);
         const qty = Number(msg.q);
         if (price) onTrade({ price, volume: qty, ts: msg.T || Date.now() });
-      } catch (e) {
-        /* ignore malformed ticks */
-      }
+      } catch (e) { /* ignore */ }
     };
-    ws.onclose = () => {
-      if (!closed) setTimeout(open, 2500);
-    };
-    ws.onerror = () => {
-      try {
-        ws.close();
-      } catch (e) {
-        /* already closing */
-      }
-    };
+    ws.onclose = () => { if (!closed) setTimeout(open, 2500); };
+    ws.onerror = () => { try { ws.close(); } catch (e) { /* ignore */ } };
   };
   open();
-  return () => {
-    closed = true;
-    try {
-      ws?.close();
-    } catch (e) {
-      /* ignore */
-    }
-  };
+  return () => { closed = true; try { ws?.close(); } catch (e) { /* ignore */ } };
 }

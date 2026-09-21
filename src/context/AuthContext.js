@@ -1,12 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  encodePass,
-  getSession,
-  getUsers,
-  PLANS,
-  saveSession,
-  saveUsers,
-} from "../lib/storage";
+import { encodePass, getSession, getUsers, PLANS, saveSession, saveUsers } from "../lib/storage";
+import { logAudit } from "../lib/audit";
 
 const AuthContext = createContext(null);
 
@@ -17,13 +11,17 @@ function uid(prefix) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [audit, setAudit] = useState([]);
 
   useEffect(() => {
     const users = getUsers();
     const session = getSession();
     if (session?.email) {
       const found = users.find((u) => u.email === session.email);
-      if (found) setUser(found);
+      if (found) {
+        const migrated = { ...found, plan: found.plan === "elite" ? "pro" : found.plan === "pro" && !PLANS.pro ? "trader" : found.plan };
+        setUser(migrated);
+      }
     }
     setReady(true);
   }, []);
@@ -36,22 +34,23 @@ export function AuthProvider({ children }) {
   };
 
   const value = useMemo(() => {
-    const plan = PLANS[user?.plan || "free"];
+    const plan = PLANS[user?.plan || "free"] || PLANS.free;
     return {
       user,
       ready,
       plan,
       isAuthed: Boolean(user),
+      audit,
       login: (email, password) => {
-        const found = getUsers().find(
-          (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-        );
+        const found = getUsers().find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
         if (!found || found.pass !== encodePass(password)) {
           throw new Error("Email or password is incorrect.");
         }
-        setUser(found);
-        saveSession({ email: found.email });
-        return found;
+        const migrated = { ...found, plan: found.plan === "elite" ? "pro" : found.plan };
+        setUser(migrated);
+        saveSession({ email: migrated.email });
+        setAudit((p) => logAudit(p, { kind: "login", message: `Login ${migrated.email}` }));
+        return migrated;
       },
       signup: ({ name, email, password }) => {
         const users = getUsers();
@@ -69,24 +68,28 @@ export function AuthProvider({ children }) {
         saveUsers([...users, created]);
         setUser(created);
         saveSession({ email: created.email });
+        setAudit((p) => logAudit(p, { kind: "login", message: `Signup ${created.email} (Free)` }));
         return created;
       },
       logout: () => {
+        setAudit((p) => logAudit(p, { kind: "logout", message: `Logout ${user?.email || ""}` }));
         setUser(null);
         saveSession(null);
       },
       subscribe: (planId) => {
         if (!user) throw new Error("Sign in first.");
-        const next = {
-          ...user,
-          plan: planId,
-          subscribedAt: Date.now(),
-        };
+        if (!PLANS[planId]) throw new Error("Unknown plan.");
+        const next = { ...user, plan: planId, subscribedAt: Date.now() };
         persistUser(next);
+        setAudit((p) => logAudit(p, { kind: "subscription_changed", message: `Plan -> ${planId}` }));
         return next;
       },
+      forgotPassword: async () => {
+        return { ok: true, message: "Password reset is handled via email link in production. Set REACT_APP_AUTH_PROVIDER to enable." };
+      },
     };
-  }, [user, ready]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, ready, audit]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

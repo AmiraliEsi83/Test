@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ALGORITHM_META } from "../lib/algorithms";
+import { STRATEGY_META } from "../lib/strategies";
 import { countdownToLondon } from "../lib/sessions";
 import { useTrading } from "../context/TradingContext";
 import { Link } from "react-router-dom";
@@ -69,13 +70,20 @@ export default function Algorithms() {
       </div>
 
       <div className="card" style={{ marginTop: 16 }}>
+        <span className="badge badge-teal">{STRATEGY_META["breakout-trend"].badge}</span>
+        <h3 style={{ fontSize: 24, marginTop: 8 }}>Breakout + Trend</h3>
+        <p className="muted">{STRATEGY_META["breakout-trend"].summary} {STRATEGY_META["breakout-trend"].detail}</p>
+        <Link to="/strategies" className="btn btn-ghost btn-sm">Configure in Strategy Center</Link>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
         <h3>How alerts become positions</h3>
         <p className="muted">
-          When you are logged in on Operator or Desk, a qualifying print raises
+          When you are logged in on Trader or Pro, a qualifying print raises
           an opening alert. You can one-tap execute to the connected broker, or
-          enable auto-execute on Desk. Stops and targets are attached. When
+          enable paper/live auto-execute per strategy. Stops and targets are attached. When
           price tags the stop, the target, or you flatten, a closing alert
-          fires with P&L.
+          fires with P&L. Research signals — not financial advice, no guaranteed returns.
         </p>
         <Link to="/terminal" className="btn btn-primary" style={{ marginTop: 8 }}>
           Watch it on the terminal

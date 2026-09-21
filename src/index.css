@@ -817,3 +817,55 @@ h3 {
     transform: none;
   }
 }
+
+select,
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"] {
+  font-size: 13px;
+}
+
+.card select,
+.dash select {
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.btn-sell {
+  background: var(--sell);
+  color: #2a0608;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+  min-height: 18px;
+}
+
+@keyframes shimmer {
+  to { background-position: -200% 0; }
+}
+
+.toast-stack .toast {
+  animation: slidein 0.25s ease;
+}
+
+@keyframes slidein {
+  from { transform: translateY(8px); opacity: 0; }
+}
+
