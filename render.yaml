@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: harsi-api
+    runtime: node
+    buildCommand: npm install && npm run prisma:generate -w @harsi/api
+    startCommand: npm run start -w @harsi/api
+    envVars:
+      - key: DEMO_MODE
+        value: "false"
+  - type: web
+    name: harsi-web
+    runtime: node
+    buildCommand: npm install && npm run build -w @harsi/web
+    startCommand: npm run start -w @harsi/web

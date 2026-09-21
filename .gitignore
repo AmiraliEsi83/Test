@@ -1,29 +1,57 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.js
 
 # testing
-/coverage
+coverage
+playwright-report
+test-results
+.nyc_output
+
+# next.js
+.next
+out
+.turbo
 
 # production
-/build
+build
+dist
+*.tsbuildinfo
 
-# misc
-.DS_Store
+# prisma / local db
+prisma/*.db
+prisma/*.db-journal
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+apps/api/dev.db
+apps/api/dev.db-journal
+*.db
+*.db-journal
+
+# env
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
 
+# logs / misc
+.DS_Store
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
 .eslintcache
+.vercel
+.cache
 
-Server/node_modules
+# IDE
+.idea
+.vscode
+*.swp
+
+# secrets
 Server/config.js
+*.pem
+*.key

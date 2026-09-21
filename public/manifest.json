@@ -1,8 +1,0 @@
-{
-  "short_name": "HARSI",
-  "name": "HARSI Terminal",
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#07080c",
-  "background_color": "#07080c"
-}

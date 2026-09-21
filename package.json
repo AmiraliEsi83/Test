@@ -1,47 +1,33 @@
 {
-  "name": "harsi-terminal",
+  "name": "harsi-trading",
   "version": "1.0.0",
-  "homepage": ".",
   "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^5.16.2",
-    "@testing-library/react": "^12.1.4",
-    "@testing-library/user-event": "^13.5.0",
-    "lightweight-charts": "^4.2.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-icons": "^4.12.0",
-    "react-router-dom": "^6.2.2",
-    "react-scripts": "5.0.0",
-    "web-vitals": "^2.1.4"
-  },
+  "description": "HARSI AI trading terminal — session algorithms, paper trading, and broker adapters.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build",
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev -w @harsi/api\" \"npm run dev -w @harsi/web\"",
+    "dev:api": "npm run dev -w @harsi/api",
+    "dev:web": "npm run dev -w @harsi/web",
+    "build": "npm run build -w @harsi/web && npm run build -w @harsi/api",
+    "start": "concurrently -n api,web -c cyan,magenta \"npm run start -w @harsi/api\" \"npm run start -w @harsi/web\"",
+    "lint": "npm run lint -w @harsi/web --if-present && npm run lint -w @harsi/api --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present -- --run",
+    "test:watch": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e -w @harsi/web",
+    "db:push": "npm run prisma:push -w @harsi/api",
+    "db:seed": "npm run seed -w @harsi/api",
+    "db:studio": "npm run prisma:studio -w @harsi/api",
+    "postinstall": "npm run prisma:generate -w @harsi/api --if-present || true"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "engines": {
+    "node": ">=20"
   },
   "devDependencies": {
-    "gh-pages": "^5.0.0"
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
   }
 }

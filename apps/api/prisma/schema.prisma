@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  plan          String   @default("free")
+  timezone      String   @default("Europe/London")
+  defaultSymbol String   @default("EURUSD")
+  demo          Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  resets       PasswordReset[]
+  strategies   StrategyConfig[]
+  signals      Signal[]
+  alerts       Alert[]
+  alertPrefs   AlertPreference[]
+  orders       Order[]
+  trades       Trade[]
+  positions    Position[]
+  brokers      BrokerConnection[]
+  backtests    BacktestRun[]
+  audits       AuditLog[]
+  watchlist    WatchlistItem[]
+  risk         RiskSettings?
+  automation   AutomationSettings?
+  chartPrefs   String @default("{}")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model StrategyConfig {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId String
+  enabled   Boolean  @default(true)
+  config    String   @default("{}")
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, strategyId])
+}
+
+model Signal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId  String
+  symbol      String
+  timeframe   String
+  side        String
+  status      String   @default("active")
+  entry       Float
+  stop        Float
+  target      Float
+  slPips      Float
+  tpPips      Float
+  riskReward  Float
+  price       Float
+  reason      String
+  conditions  String
+  result      String?
+  createdAt   DateTime @default(now())
+  closedAt    DateTime?
+}
+
+model Alert {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  message    String
+  symbol     String?
+  side       String?
+  strategyId String?
+  signalId   String?
+  read       Boolean  @default(false)
+  locked     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model AlertPreference {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event   String
+  browser Boolean @default(true)
+  email   Boolean @default(false)
+  webhook Boolean @default(false)
+
+  @@unique([userId, event])
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerId     String   @default("paper")
+  mode         String   @default("paper")
+  symbol       String
+  side         String
+  type         String
+  lots         Float
+  price        Float?
+  stop         Float?
+  target       Float?
+  status       String
+  filledLots   Float    @default(0)
+  averagePrice Float?
+  strategyId   String?
+  reason       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Position {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerId   String   @default("paper")
+  mode       String   @default("paper")
+  symbol     String
+  side       String
+  lots       Float
+  entry      Float
+  stop       Float?
+  target     Float?
+  strategyId String?
+  openedAt   DateTime @default(now())
+  status     String   @default("open")
+}
+
+model Trade {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerId   String
+  mode       String
+  symbol     String
+  side       String
+  lots       Float
+  entry      Float
+  exit       Float
+  pnl        Float
+  commission Float    @default(0)
+  strategyId String?
+  durationMs Int      @default(0)
+  openedAt   DateTime
+  closedAt   DateTime @default(now())
+}
+
+model BrokerConnection {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String
+  name        String
+  status      String   @default("not_configured")
+  environment String   @default("paper")
+  accountId   String?
+  lastSync    DateTime?
+  permissions String   @default("trade")
+  secretEnc   String   @default("")
+  error       String?
+  createdAt   DateTime @default(now())
+}
+
+model BacktestRun {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId String
+  symbol     String
+  timeframe  String
+  params     String
+  result     String
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  detail    String
+  createdAt DateTime @default(now())
+}
+
+model WatchlistItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol String
+  sort   Int    @default(0)
+
+  @@unique([userId, symbol])
+}
+
+model RiskSettings {
+  id                         String @id @default(cuid())
+  userId                     String @unique
+  user                       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  riskPerTradePct            Float  @default(1)
+  maxPositionLots            Float  @default(5)
+  maxDailyLoss               Float  @default(1500)
+  maxOpenPositions           Int    @default(8)
+  maxExposureByAsset         Float  @default(3)
+  stopAfterConsecutiveLosses Int    @default(4)
+  dailyKillSwitch            Boolean @default(true)
+  killSwitchActive           Boolean @default(false)
+}
+
+model AutomationSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  json   String @default("{}")
+}
+
+model PaperAccount {
+  userId    String   @id
+  cash      Float    @default(100000)
+  realized  Float    @default(0)
+  updatedAt DateTime @updatedAt
+}
