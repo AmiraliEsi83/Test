@@ -1,0 +1,26 @@
+{
+  "name": "@harsi/trading-engine",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@harsi/shared": "*",
+    "@harsi/strategies": "*",
+    "@harsi/broker-adapters": "*",
+    "@harsi/market-data": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

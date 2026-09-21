@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@harsi/shared": ["packages/shared/src/index.ts"],
+      "@harsi/shared/*": ["packages/shared/src/*"],
+      "@harsi/market-data": ["packages/market-data/src/index.ts"],
+      "@harsi/market-data/*": ["packages/market-data/src/*"],
+      "@harsi/strategies": ["packages/strategies/src/index.ts"],
+      "@harsi/strategies/*": ["packages/strategies/src/*"],
+      "@harsi/broker-adapters": ["packages/broker-adapters/src/index.ts"],
+      "@harsi/broker-adapters/*": ["packages/broker-adapters/src/*"],
+      "@harsi/trading-engine": ["packages/trading-engine/src/index.ts"],
+      "@harsi/trading-engine/*": ["packages/trading-engine/src/*"]
+    }
+  }
+}

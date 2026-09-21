@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: harsi-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: harsi_admin
+      POSTGRES_PASSWORD: harsi_secure_password
+      POSTGRES_DB: harsi_trading
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: harsi-api
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      PORT: 5001
+      NODE_ENV: production
+      DATABASE_URL: postgresql://harsi_admin:harsi_secure_password@postgres:5432/harsi_trading
+      JWT_SECRET: super_secure_harsi_jwt_secret_key_2026_institutional
+    depends_on:
+      - postgres
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: harsi-web
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

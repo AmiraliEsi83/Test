@@ -1,0 +1,33 @@
+import { WebSocket } from 'ws';
+import { AutomationSettings, Signal } from '@harsi/shared';
+import { MockMarketFeed, EconomicCalendarService } from '@harsi/market-data';
+import { PaperBrokerAdapter, AlpacaBrokerAdapter, OandaBrokerAdapter, InteractiveBrokersAdapter, BrokerAdapter } from '@harsi/broker-adapters';
+import { RiskManager, OrderManager, ExecutionPipeline, BacktestingEngine } from '@harsi/trading-engine';
+export declare class TradingService {
+    feed: MockMarketFeed;
+    paperBroker: PaperBrokerAdapter;
+    alpacaBroker: AlpacaBrokerAdapter;
+    oandaBroker: OandaBrokerAdapter;
+    ibkrBroker: InteractiveBrokersAdapter;
+    activeBroker: BrokerAdapter;
+    riskManager: RiskManager;
+    orderManager: OrderManager;
+    executionPipeline: ExecutionPipeline;
+    backtester: BacktestingEngine;
+    economicCalendar: EconomicCalendarService;
+    automationSettings: AutomationSettings;
+    private wsClients;
+    private tickInterval;
+    private activeSignals;
+    private lastFiredByStrategy;
+    forceLondonWindow: boolean;
+    constructor();
+    registerClient(ws: WebSocket): void;
+    unregisterClient(ws: WebSocket): void;
+    broadcast(message: any): void;
+    setActiveBroker(brokerId: string): void;
+    private startStreaming;
+    private evaluateStrategiesForSymbol;
+    getActiveSignals(): Signal[];
+}
+export declare const tradingService: TradingService;

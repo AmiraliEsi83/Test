@@ -1,0 +1,190 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  passwordHash     String
+  name             String
+  subscriptionTier String            @default("TRADER") // FREE, TRADER, PRO
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  subscriptions    Subscription[]
+  orders           Order[]
+  positions        Position[]
+  alerts           Alert[]
+  backtests        BacktestRun[]
+  auditLogs        AuditLog[]
+  strategyConfigs  StrategyConfig[]
+  brokerConnections BrokerConnection[]
+}
+
+model Subscription {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             String   // FREE, TRADER, PRO
+  status           String   @default("ACTIVE")
+  currentPeriodEnd DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model StrategyConfig {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId       String
+  enabled          Boolean  @default(true)
+  symbols          String   // Comma separated or JSON string
+  timeframe        String   @default("15m")
+  parameters       String   // JSON string
+  maxSignalsPerDay Int      @default(3)
+  cooldownMinutes  Int      @default(30)
+  allowedDays      String   @default("Mon,Tue,Wed,Thu,Fri")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, strategyId])
+}
+
+model Signal {
+  id           String   @id @default(uuid())
+  strategyId   String
+  strategyName String
+  symbol       String
+  timeframe    String
+  side         String   // BUY, SELL
+  price        Float
+  entry        Float
+  stopLoss     Float
+  takeProfit   Float
+  riskReward   String
+  timestamp    BigInt
+  status       String   @default("ACTIVE") // ACTIVE, EXPIRED, HIT_TP, HIT_SL, CANCELLED
+  resultPips   Float?
+  reason       String
+  conditions   String   // JSON array of SignalCondition
+  metadata     String?  // JSON object
+  createdAt    DateTime @default(now())
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signalId  String?
+  symbol    String
+  side      String
+  type      String   // SIGNAL, ENTRY, EXIT, SL_HIT, TP_HIT, RISK_BREACH
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol      String
+  side        String   // BUY, SELL
+  type        String   // MARKET, LIMIT, STOP
+  lots        Float
+  price       Float
+  stopLoss    Float?
+  takeProfit  Float?
+  status      String   // PENDING, FILLED, CANCELLED, REJECTED
+  filledAt    DateTime?
+  filledPrice Float?
+  commission  Float    @default(0.0)
+  slippage    Float    @default(0.0)
+  reason      String?
+  strategyId  String?
+  brokerType  String   @default("paper")
+  mode        String   @default("PAPER") // PAPER, LIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Position {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol            String
+  side              String   // LONG, SHORT
+  lots              Float
+  entryPrice        Float
+  currentPrice      Float
+  stopLoss          Float?
+  takeProfit        Float?
+  unrealizedPnl     Float    @default(0.0)
+  unrealizedPnlPips Float    @default(0.0)
+  realizedPnl       Float    @default(0.0)
+  strategyId        String?
+  brokerType        String   @default("paper")
+  mode              String   @default("PAPER") // PAPER, LIVE
+  openedAt          DateTime @default(now())
+  closedAt          DateTime?
+}
+
+model BrokerConnection {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brokerType         String   // paper, alpaca, oanda, ibkr
+  environment        String   @default("sandbox") // sandbox, live
+  accountId          String?
+  apiKeyEncrypted    String?
+  apiSecretEncrypted String?
+  status             String   @default("NOT_CONFIGURED") // CONNECTED, NOT_CONFIGURED, NOT_CONNECTED
+  lastSync           DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([userId, brokerType])
+}
+
+model BacktestRun {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategyId      String
+  strategyName    String
+  symbol          String
+  timeframe       String
+  startDate       String
+  endDate         String
+  startingBalance Float
+  finalBalance    Float
+  netProfit       Float
+  returnPct       Float
+  totalTrades     Int
+  winningTrades   Int
+  losingTrades    Int
+  winRate         Float
+  profitFactor    Float
+  maxDrawdownPct  Float
+  averageTrade    Float
+  parameters      String   // JSON string
+  resultJson      String   // Full JSON result
+  createdAt       DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  category  String   // AUTH, ORDER, POSITION, STRATEGY, RISK, BROKER, AUTOMATION
+  details   String
+  level     String   @default("INFO") // INFO, WARN, ERROR
+  ip        String?
+  createdAt DateTime @default(now())
+}
