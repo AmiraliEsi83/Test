@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: file:./prisma/dev.db
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-dev-secret-dev-secret}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key}
+      DEMO_MODE: "true"
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: harsi
+      POSTGRES_PASSWORD: harsi
+      POSTGRES_DB: harsi
+    ports:
+      - "5432:5432"

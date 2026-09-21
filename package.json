@@ -1,47 +1,48 @@
 {
-  "name": "harsi-terminal",
+  "name": "harsi-ai-trading",
   "version": "1.0.0",
-  "homepage": ".",
   "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^5.16.2",
-    "@testing-library/react": "^12.1.4",
-    "@testing-library/user-event": "^13.5.0",
-    "lightweight-charts": "^4.2.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "react-icons": "^4.12.0",
-    "react-router-dom": "^6.2.2",
-    "react-scripts": "5.0.0",
-    "web-vitals": "^2.1.4"
-  },
+  "description": "HARSI research terminal: session signals, paper execution, and broker adapters.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build",
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "postinstall": "prisma generate",
+    "setup": "node scripts/setup.mjs",
+    "dev": "dotenv -e .env -- npm run dev -w @harsi/web -- -p 3000",
+    "build": "dotenv -e .env -- npm run build -w @harsi/web",
+    "start": "dotenv -e .env -- npm run start -w @harsi/web -- -p 3000",
+    "lint": "npm run lint -w @harsi/web",
+    "typecheck": "tsc -p apps/web --noEmit",
+    "test": "vitest run",
+    "test:e2e": "dotenv -e .env -- playwright test",
+    "db:migrate": "dotenv -e .env -- prisma migrate deploy",
+    "db:seed": "dotenv -e .env -- tsx prisma/seed.ts",
+    "db:reset": "dotenv -e .env -- prisma migrate reset --force"
   },
   "devDependencies": {
-    "gh-pages": "^5.0.0"
+    "@playwright/test": "^1.49.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "dotenv-cli": "^7.4.4",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.18",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "jose": "^5.9.6",
+    "zod": "^3.24.1"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
