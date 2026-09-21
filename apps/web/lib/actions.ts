@@ -1,4 +1,4 @@
-import { zonedParts, formatMoney, getInstrument, isInstrument, londonDayKey, parseJson, planAllows, sessionStates, timeframeMinutes, TIMEFRAMES, type PlanId, type Side } from "@harsi/shared";
+import { zonedParts, formatMoney, getInstrument, isInstrument, londonDayKey, parseJson, planAllows, overlappingSessions, sessionStates, timeframeMinutes, TIMEFRAMES, type PlanId, type Side } from "@harsi/shared";
 import { closedCandles, resample } from "@harsi/market-data";
 import { getStrategy, mergeParams, STRATEGIES, type Check } from "@harsi/strategies";
 import {
@@ -587,6 +587,7 @@ export async function dashboardPayload(user: PublicUser, symbol: string, timefra
     orders: ledger.orders.slice(-40).reverse(),
     signals: signals.map(serializeSignal).filter((signal) => user.plan !== "free" || Date.now() - new Date(signal.createdAt).getTime() >= 15 * 60 * 1000),
     sessions: sessionStates(new Date()),
+    overlap: overlappingSessions(new Date()),
     clock: zonedParts(new Date(), user.timezone),
     london: zonedParts(new Date(), "Europe/London"),
     brokers: brokers.map(publicBroker),

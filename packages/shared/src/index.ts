@@ -206,19 +206,29 @@ export interface ZonedParts {
   weekday: string;
 }
 
+const zoneFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function zoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = zoneFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+      weekday: "short",
+    });
+    zoneFormatters.set(timeZone, fmt);
+  }
+  return fmt;
+}
+
 export function zonedParts(date = new Date(), timeZone = "Europe/London"): ZonedParts {
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-    weekday: "short",
-  });
-  const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]));
+  const parts = Object.fromEntries(zoneFormatter(timeZone).formatToParts(date).map((p) => [p.type, p.value]));
   let hour = Number(parts.hour);
   if (hour === 24) hour = 0;
   return {

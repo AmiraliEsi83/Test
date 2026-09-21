@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { atr, ema, resample, rsi } from "./index";
+import { atr, clearTapeCache, ema, getSimulatedCandles, resample, rsi } from "./index";
 
 describe("indicators", () => {
   it("seeds EMA with an SMA and then smooths", () => {
@@ -39,5 +39,12 @@ describe("indicators", () => {
       volume: 1,
     }));
     expect(atr(candles, 14).at(-1)).toBeGreaterThan(0);
+  });
+
+  it("keeps an older simulated window separate from the live tape", () => {
+    clearTapeCache();
+    const live = getSimulatedCandles("EURUSD", Date.parse("2026-09-21T12:00:00Z"), 2);
+    const older = getSimulatedCandles("EURUSD", Date.parse("2026-02-01T12:00:00Z"), 2);
+    expect(older[older.length - 1].time).toBeLessThan(live[0].time);
   });
 });

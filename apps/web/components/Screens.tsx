@@ -284,9 +284,11 @@ export function BacktestScreen() {
   const toast = useToast();
   const { data, reload } = useLoad<{ runs: { id: string; strategyId: string; symbol: string; timeframe: string; createdAt: string; results: { netPnl?: number; trades?: number; maxDrawdown?: number; profitFactor?: number | null } }[] }>("/api/backtest");
   const [result, setResult] = useState<{ stats: { netPnl: number; trades: number; winRate: number | null; profitFactor: number | null; maxDrawdown: number; equity: { equity: number }[] }; marketData: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    setBusy(true);
     try {
       const next = await api<NonNullable<typeof result>>("/api/backtest", { method: "POST", body: JSON.stringify({ strategyId: form.get("strategyId"), symbol: form.get("symbol"), timeframe: form.get("timeframe"), startDate: form.get("startDate"), endDate: form.get("endDate"), starting: Number(form.get("starting")) }) });
       setResult(next);
@@ -294,6 +296,8 @@ export function BacktestScreen() {
       reload();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Backtest was not run.", "err");
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -307,7 +311,7 @@ export function BacktestScreen() {
         <label className="field"><span>Start</span><input name="startDate" type="date" required defaultValue="2026-02-01" /></label>
         <label className="field"><span>End</span><input name="endDate" type="date" required defaultValue="2026-03-01" /></label>
         <label className="field"><span>Starting balance</span><input name="starting" type="number" defaultValue={100000} /></label>
-        <button className="btn primary" type="submit">Run</button>
+        <button className="btn primary" type="submit" disabled={busy}>{busy ? "Running" : "Run"}</button>
       </form>
       {result ? <div className="banner ok">Simulated · {result.stats.trades} trades · net {formatMoney(result.stats.netPnl)} · drawdown {formatMoney(result.stats.maxDrawdown)}</div> : null}
       <div className="card table-wrap">

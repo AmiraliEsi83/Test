@@ -157,6 +157,17 @@ export function buildSimulatedTape(symbol: string, now = Date.now(), days = 40):
     if (mins >= 8 * 60 && mins < 16 * 60 + 30) energy = 1.25;
     if (mins >= 13 * 60 && mins < 17 * 60) energy = 1.55;
     if (parts.weekday === "Sat" || parts.weekday === "Sun") energy = 0.12;
+    if (
+      parts.weekday !== "Sat" &&
+      parts.weekday !== "Sun" &&
+      mins === 7 * 60 + 45 &&
+      (inst.kind === "fx" || inst.kind === "metal") &&
+      rng() < 0.34
+    ) {
+      const side = rng() < 0.5 ? -1 : 1;
+      const pips = 16 + rng() * 13;
+      price = Math.max(inst.pip, price + side * pips * inst.pip);
+    }
     const shock = (rng() - 0.485) * inst.vol * energy;
     const drift = (inst.base - price) * 0.0012;
     const open = price;
@@ -189,10 +200,19 @@ function withLiveWobble(candles: Candle[], inst: InstrumentSpec, now: number): C
 }
 
 export function getSimulatedCandles(symbol: string, now = Date.now(), days = 40): Candle[] {
-  const cached = tapeCache.get(symbol);
-  const fresh = cached && now - cached.builtAt < 30_000 ? cached.candles : buildSimulatedTape(symbol, now, days);
-  if (!cached || now - cached.builtAt >= 30_000) tapeCache.set(symbol, { builtAt: now, candles: fresh });
-  return withLiveWobble(fresh, getInstrument(symbol), now);
+  const end = Math.floor(now / 60000) * 60000;
+  const key = `${symbol}:${days}:${end}`;
+  let candles = tapeCache.get(key)?.candles;
+  if (!candles) {
+    candles = buildSimulatedTape(symbol, now, days);
+    tapeCache.set(key, { builtAt: Date.now(), candles });
+    if (tapeCache.size > 32) {
+      const oldest = [...tapeCache.entries()].sort((a, b) => a[1].builtAt - b[1].builtAt)[0];
+      if (oldest) tapeCache.delete(oldest[0]);
+    }
+  }
+  if (Math.abs(Date.now() - now) < 120_000) return withLiveWobble(candles, getInstrument(symbol), Date.now());
+  return candles.map((candle) => ({ ...candle }));
 }
 
 export function clearTapeCache(): void {

@@ -18,6 +18,7 @@ interface Snapshot {
   positions: { id: string; symbol: string; side: "buy" | "sell"; qty: number; entry: number; stop: number | null; target: number | null; mark: number; unrealized: number; strategyId: string | null }[];
   signals: { id: string; createdAt: string; side: "buy" | "sell"; strategyId: string; symbol: string }[];
   sessions: { id: string; label: string; open: boolean; weekend: boolean; labelCountdown: string; change: string }[];
+  overlap: string[];
   london: { hour: number; minute: number; weekday: string };
   clock: { hour: number; minute: number };
 }
@@ -108,7 +109,7 @@ export function Terminal({ initialSymbol }: { initialSymbol: string }) {
           </div>
         ))}
       </div>
-      <p className="faint">London clock {data ? `${String(data.london.hour).padStart(2, "0")}:${String(data.london.minute).padStart(2, "0")} ${data.london.weekday}` : "—"} · HARSI uses London, not the timezone in the header.</p>
+      <p className="faint">London clock {data ? `${String(data.london.hour).padStart(2, "0")}:${String(data.london.minute).padStart(2, "0")} ${data.london.weekday}` : "—"} · HARSI uses London, not the timezone in the header. {data?.overlap?.length ? `Open now: ${data.overlap.join(" · ")}.` : "No cash session is open."}</p>
       <div className="watch" data-testid="watchlist">
         {(data?.watch ?? []).map((item) => (
           <button key={item.symbol} className={`btn ${item.symbol === symbol ? "active" : ""}`} type="button" onClick={() => setSymbol(item.symbol)}>
