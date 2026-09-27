@@ -1,0 +1,481 @@
+{
+  "results": {
+    "bindings": [
+      {
+        "qid": {
+          "value": "Q1001"
+        },
+        "uscc": {
+          "value": "91130706MAEQDDYM9P"
+        },
+        "en": {
+          "value": "Uncle Zhang Trading Co., Ltd",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "张家口张大爷商贸有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2025-07-10T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1002"
+        },
+        "uscc": {
+          "value": "91310230MAK1C01T3N"
+        },
+        "en": {
+          "value": "Shanghai E-won Technology Development Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "上海易享通达科技发展有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2025-12-01T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1003"
+        },
+        "uscc": {
+          "value": "91370100MAD6GJYA3Q"
+        },
+        "en": {
+          "value": "自变量科技（深圳）有限公司",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "自变量科技（深圳）股份有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2023-12-05T00:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1004"
+        },
+        "uscc": {
+          "value": "9131011571786229XM"
+        },
+        "en": {
+          "value": "Sigma-Aldrich (Shanghai) Trading Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "西格玛奥德里奇（上海）贸易有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2005-12-26T23:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1005"
+        },
+        "uscc": {
+          "value": "91310110MA1G85043J"
+        },
+        "en": {
+          "value": "PCS Technology Intelligence Holdings Limited",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "上海盈联智能化科技股份有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2016-04-26T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1006"
+        },
+        "uscc": {
+          "value": "91110115MADNLH8U9J"
+        },
+        "en": {
+          "value": "beijing xunhu keji youxian gongsi",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "北京寻呼科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2024-06-13T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1007"
+        },
+        "uscc": {
+          "value": "91350206MA337F1M0Q"
+        },
+        "en": {
+          "value": "XIAMEN JOY TECHNOLOGY CO., LTD.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "厦门卓恩科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2019-09-11T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1008"
+        },
+        "uscc": {
+          "value": "91120116746651811R"
+        },
+        "en": {
+          "value": "Tianjin Tanggu Water-Seal valve",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "天津市塘沽沃特斯阀门有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2003-01-22T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1009"
+        },
+        "uscc": {
+          "value": "91110106097771222B"
+        },
+        "en": {
+          "value": "Beijing Tengdun Technology Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "北京腾盾科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2014-04-14T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1010"
+        },
+        "uscc": {
+          "value": "91620000MAK9DC2LX9"
+        },
+        "en": {
+          "value": "Gansu Rural Commercial Bank Co.,Ltd",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "甘肃农村商业银行股份有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2026-03-16T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1011"
+        },
+        "uscc": {
+          "value": "91440113716355579P"
+        },
+        "en": {
+          "value": "Trolli Guangzhou Confectionery Co.,Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "迈德乐（广州）糖果有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "1999-09-09T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1012"
+        },
+        "uscc": {
+          "value": "91340121322813207G"
+        },
+        "en": {
+          "value": "Hefei Longbow Optoelectronic Technology Co.,Ltd",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "合肥长隆光电科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2014-12-07T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1013"
+        },
+        "uscc": {
+          "value": "91110108599663854W"
+        },
+        "en": {
+          "value": "Unisound AI Technology Company Limited",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "云知声智能科技股份有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2012-06-29T00:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1014"
+        },
+        "uscc": {
+          "value": "91310114695793034W"
+        },
+        "en": {
+          "value": "PATEO CONNECT Technology (Shanghai) Corporation",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "博泰车联网科技（上海）股份有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2009-10-19T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1015"
+        },
+        "uscc": {
+          "value": "9131000008616120XY"
+        },
+        "en": {
+          "value": "Merck Holding (China) Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "默克投资（中国）有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2013-12-16T23:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1016"
+        },
+        "uscc": {
+          "value": "91320214677600956U"
+        },
+        "en": {
+          "value": "Sigma-Aldrich (Wuxi) Life Science & Technology Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "西格玛-阿尔德里奇（无锡）生命科学与技术有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2008-07-24T22:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1017"
+        },
+        "uscc": {
+          "value": "9134010039636984XR"
+        },
+        "en": {
+          "value": "IKP ELECTRONICS CO LTD",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "合肥艾克比电子科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2014-07-07T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1018"
+        },
+        "uscc": {
+          "value": "91420100MABUC31T1Y"
+        },
+        "en": {
+          "value": "武汉告非科技有限公司",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "武汉告非科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2022-08-01T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1019"
+        },
+        "uscc": {
+          "value": "913205817986042831"
+        },
+        "en": {
+          "value": "Syensqo Specialty Polymers (Changshu) Co., Ltd",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "世索科特种聚合物（常熟）有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2007-03-02T00:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1020"
+        },
+        "uscc": {
+          "value": "91310104MACE0YX639"
+        },
+        "en": {
+          "value": "StepFun Intelligence Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "StepFun Intelligence Co., Ltd.",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2023-04-06T00:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1021"
+        },
+        "uscc": {
+          "value": "91440300MA5D9X5Q1H"
+        },
+        "en": {
+          "value": "深圳迅策科技股份有限公 司",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "深圳迅策科技股份有限公 司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2016-04-01T00:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1022"
+        },
+        "uscc": {
+          "value": "91510122096784048U"
+        },
+        "en": {
+          "value": "Dekon Food and Agriculture Group",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "四川德康农牧食品集团股份有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2014-04-10T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1023"
+        },
+        "uscc": {
+          "value": "91310115759567192D"
+        },
+        "en": {
+          "value": "SYENSQO (SHANGHAI) INTERNATIONAL TRADING CO., LTD",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "世索科（上海）国际贸易有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2004-03-08T00:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1024"
+        },
+        "uscc": {
+          "value": "91440300MAK5D5FD4U"
+        },
+        "en": {
+          "value": "Shenzhen Cutrix Technology Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "深圳市有限无界科技有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2025-12-25T16:00:00Z"
+        }
+      },
+      {
+        "qid": {
+          "value": "Q1025"
+        },
+        "uscc": {
+          "value": "91410329MA3X50J78G"
+        },
+        "en": {
+          "value": "Yichuan Water Investment Co., Ltd.",
+          "xml:lang": "en"
+        },
+        "zh": {
+          "value": "伊川水务投资有限公司",
+          "xml:lang": "zh"
+        },
+        "inception": {
+          "value": "2015-11-11T16:00:00Z"
+        }
+      }
+    ]
+  }
+}

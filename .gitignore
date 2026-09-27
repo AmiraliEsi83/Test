@@ -27,3 +27,14 @@ yarn-error.log*
 
 Server/node_modules
 Server/config.js
+
+# Feeder v2
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+feeder_v2/.venv/
+feeder_v2/bronze/**
+!feeder_v2/bronze/.gitkeep
+feeder_v2/runs/**
+!feeder_v2/runs/.gitkeep

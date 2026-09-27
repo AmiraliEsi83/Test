@@ -1,0 +1,4 @@
+{"success": true, "result": {"resources": [
+  {"format": "CSV", "url": "https://www.cr.gov.hk/docs/wrpt/RNC063/RNC063L_20241230.csv", "name": "local"},
+  {"format": "CSV", "url": "https://www.cr.gov.hk/docs/wrpt/RNC063/RNC063F_20241230.csv", "name": "foreign"}
+]}}

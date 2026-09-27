@@ -49,3 +49,7 @@ Amir Ali Eslami
 [![LinkedIn Badge](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/amiralieslami/)
 
 Inspired by [Soumyajit](https://github.com/soumyajit4419/Portfolio/tree/master)
+
+## Feeder v2 — China corporate registry (bronze)
+
+PO-1594 / PO-1693 live under [`feeder_v2/`](feeder_v2/README.md): a YAML-schema connector that lands three official-register streams (GLEIF SAMR/USCC, Hong Kong Companies Registry, Wikidata P6795) to bronze. OpenCorporates is not used.

@@ -1,0 +1,180 @@
+# Feeder v2 connector spec — China corporate registry (bronze)
+# Tickets: PO-1594 (build YAML + bronze landing), PO-1693 (validate all three streams)
+apiVersion: feeder/v2
+kind: SourceConnector
+metadata:
+  id: china_corporate_registry
+  name: China Corporate Registry
+  version: "1.0.0"
+  layer: bronze
+  tickets: ["PO-1594", "PO-1693"]
+  description: >
+    Official-register China corporate data that this repo does not already ingest.
+    OpenCorporates (Calgary/Alberta) is intentionally excluded. Sources are free,
+    keyless, and carry government register identifiers (USCC / HK BR number).
+
+spec:
+  owner: data-platform
+  country_scope: ["CN", "HK"]
+  rejected_sources:
+    - OpenCorporates (already used for Calgary / ca_ab)
+    - Qichacha / Tianyancha / Aiqicha / Wind / CSMAR (paid)
+    - gsxt.gov.cn scrape (no bulk API, ToS / blocking)
+
+  landing:
+    layer: bronze
+    format: jsonl
+    encoding: utf-8
+    path_template: "{bronze_root}/{connector_id}/{stream}/dt={date}/run={run_id}/part-00000.jsonl"
+    write_disposition: replace_run
+    include_raw_payload: true
+    success_file: _SUCCESS
+    manifest_file: manifest.json
+
+  bronze_contract:
+    required_fields:
+      - source_record_id
+      - register_id
+      - register_id_type
+      - register_authority
+      - register_authority_name
+      - legal_name
+      - country_code
+      - jurisdiction_code
+      - entity_status
+    types:
+      source_record_id: string
+      register_id: string
+      register_id_type: string
+      register_authority: string
+      register_authority_name: string
+      legal_name: string
+      legal_name_language: string
+      legal_name_en: string
+      legal_name_zh: string
+      country_code: string
+      jurisdiction_code: string
+      entity_status: string
+      company_type: string
+      incorporation_date: string
+      lei: string
+      registered_address_city: string
+      registered_address_region: string
+      registered_address_country: string
+      registered_address_line: string
+    meta_fields:
+      - ingest_id
+      - ingested_at
+      - connector_id
+      - stream
+      - schema_version
+      - layer
+      - source_system
+      - source_uri
+      - run_id
+
+  run_profiles:
+    validate:
+      # PO-1693: land a representative slice of all three streams to bronze
+      limit_per_stream: 80
+      gleif_page_size: 40
+      hk_weeks: 1
+      wikidata_limit: 80
+    full:
+      limit_per_stream: null
+      gleif_page_size: 200
+      hk_weeks: 8
+      wikidata_limit: 3000
+
+  streams:
+    - name: cn_samr_lei
+      enabled: true
+      extractor: gleif_cn
+      primary_key: [lei]
+      description: >
+        Mainland China legal entities from the GLEIF Golden Copy, restricted to
+        jurisdiction CN + category GENERAL. Registration authority RA000092 is the
+        National Enterprise Credit Information Publicity System (SAMR / GSXT).
+        registeredAs / validatedAs is the 18-character Unified Social Credit Code.
+      source:
+        system: gleif
+        type: rest
+        license: CC0-1.0
+        docs: https://www.gleif.org/en/lei-data/gleif-api
+        base_url: https://api.gleif.org/api/v1
+        path: /lei-records
+        auth: none
+        params:
+          filter[entity.jurisdiction]: CN
+          filter[entity.category]: GENERAL
+        page_size_param: page[size]
+        page_number_param: page[number]
+        max_page_size: 200
+      register:
+        id_type: CN_USCC
+        authority_code: RA000092
+        authority_name: National Enterprise Credit Information Publicity System (SAMR)
+        authority_url: http://www.gsxt.gov.cn/index.html
+        id_field: uscc
+      quality:
+        min_rows_validate: 20
+        uscc_required: true
+        uscc_checksum: true
+        country_code: CN
+
+    - name: hk_companies_register
+      enabled: true
+      extractor: hk_cr
+      primary_key: [register_id, legal_name, event_date]
+      description: >
+        Official Hong Kong Companies Registry weekly open data (data.gov.hk / cr.gov.hk):
+        newly incorporated, registered, re-domiciled, or renamed companies with
+        Inland Revenue Department Business Registration (BR) numbers.
+      source:
+        system: hk_companies_registry
+        type: ckan_csv
+        license: HK_Open_Data_Licence
+        docs: https://data.gov.hk/en-data/dataset/hk-cr-crdata-list-newly-registered-companies-2526
+        ckan_package_url: https://data.gov.hk/en-data/api/3/action/package_show
+        ckan_package_id: hk-cr-crdata-list-newly-registered-companies-2526
+        auth: none
+        csv_local_prefix: RNC063L_
+        csv_foreign_prefix: RNC063F_
+      register:
+        id_type: HK_BRN
+        authority_code: HK-CR
+        authority_name: Hong Kong Companies Registry
+        authority_url: https://www.cr.gov.hk/
+        id_field: br_number
+      quality:
+        min_rows_validate: 20
+        brn_required: true
+        country_code: HK
+
+    - name: cn_uscc_wikidata
+      enabled: true
+      extractor: wikidata_uscc
+      primary_key: [wikidata_qid, uscc]
+      description: >
+        Complementary mainland register-ID index: Wikidata property P6795
+        (Unified Social Credit ID), the official 18-character Chinese legal-person
+        identifier. Used for entities that may not yet have an LEI.
+      source:
+        system: wikidata
+        type: sparql
+        license: CC0-1.0
+        docs: https://www.wikidata.org/wiki/Property:P6795
+        endpoint: https://query.wikidata.org/sparql
+        auth: none
+        property: P6795
+      register:
+        id_type: CN_USCC
+        authority_code: RA000092
+        authority_name: National Enterprise Credit Information Publicity System (SAMR)
+        authority_url: http://www.gsxt.gov.cn/index.html
+        id_field: uscc
+      quality:
+        min_rows_validate: 20
+        uscc_required: true
+        uscc_checksum: true
+        country_code: CN
