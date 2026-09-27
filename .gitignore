@@ -27,3 +27,9 @@ yarn-error.log*
 
 Server/node_modules
 Server/config.js
+
+# China registry connector output and local env
+china-corporate-registry/.venv
+china-corporate-registry/data/
+**/__pycache__/
+*.pyc

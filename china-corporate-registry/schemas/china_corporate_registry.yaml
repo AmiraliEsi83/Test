@@ -1,0 +1,97 @@
+# Feeder v2 connector schema.
+# Bronze landing for mainland China companies whose business register is the
+# National Enterprise Credit Information Publicity System (GSXT / SAMR).
+feeder:
+  version: 2
+  connector: china_corporate_registry
+  layer: bronze
+  mode: batch
+  schedule: "0 6 * * *"
+  description: >
+    Mainland China corporate-registry records. The feed is the public GLEIF
+    LEI golden copy (CC0, no API key), limited to entities formed in CN whose
+    registration authority is RA000092. The registration number is the
+    Unified Social Credit Code published by GSXT.
+  source:
+    system: gleif
+    api: https://api.gleif.org/api/v1/lei-records
+    license: CC0-1.0
+    license_url: https://www.gleif.org/en/meta/lei-data-terms-of-use/
+    documentation: https://api.gleif.org/docs
+  registry:
+    id: RA000092
+    international_name: National Enterprise Credit Information Publicity System
+    local_name: 全国企业信用信息公示系统
+    operator: State Administration for Market Regulation
+    operator_local_name: 国家市场监督管理总局
+    website: http://www.gsxt.gov.cn/
+  jurisdiction: CN
+  landing:
+    format: jsonl
+    encoding: utf-8
+    datasets:
+      - entities
+      - registrations
+      - addresses
+
+datasets:
+  entities:
+    description: One row per legal entity on the China corporate register.
+    primary_key: [lei]
+    fields:
+      - {name: lei, type: lei, required: true}
+      - {name: legal_name, type: string, required: true}
+      - {name: legal_name_language, type: string, required: true}
+      - {name: english_name, type: string, required: false}
+      - {name: transliterated_name, type: string, required: false}
+      - {name: jurisdiction, type: enum, values: [CN], required: true}
+      - {name: entity_status, type: enum, values: [ACTIVE, INACTIVE, NULL], required: true}
+      - {name: entity_category, type: string, required: true}
+      - {name: legal_form_code, type: string, required: true}
+      - {name: legal_form_name, type: string, required: true}
+      - {name: creation_date, type: datetime, required: false}
+      - {name: expiration_date, type: datetime, required: false}
+      - {name: conformity_flag, type: string, required: false}
+      - {name: source_system, type: enum, values: [gleif], required: true}
+      - {name: source_record_url, type: string, required: true}
+      - {name: raw_sha256, type: string, required: true}
+      - {name: retrieved_at, type: datetime, required: true}
+      - {name: ingest_batch_id, type: string, required: true}
+
+  registrations:
+    description: Business-register identifier for each entity. One row per LEI.
+    primary_key: [lei]
+    fields:
+      - {name: lei, type: lei, required: true}
+      - {name: registration_authority_id, type: enum, values: [RA000092], required: true}
+      - {name: registration_authority_name, type: string, required: true}
+      - {name: registration_authority_local_name, type: string, required: true}
+      - {name: registration_number, type: uscc, required: true}
+      - {name: registration_number_check, type: enum, values: [true], required: true}
+      - {name: validation_authority_id, type: enum, values: [RA000092], required: true}
+      - {name: validated_as, type: uscc, required: true}
+      - {name: numbers_match, type: enum, values: [true], required: true}
+      - {name: corroboration_level, type: string, required: true}
+      - {name: lei_registration_status, type: enum, values: [ISSUED, LAPSED, MERGED, RETIRED, DUPLICATE, ANNULLED, CANCELLED, TRANSFERRED, PENDING_TRANSFER, PENDING_ARCHIVAL], required: true}
+      - {name: initial_registration_date, type: datetime, required: true}
+      - {name: last_update_date, type: datetime, required: true}
+      - {name: next_renewal_date, type: datetime, required: false}
+      - {name: managing_lou, type: string, required: true}
+      - {name: registry_website, type: string, required: true}
+      - {name: retrieved_at, type: datetime, required: true}
+      - {name: ingest_batch_id, type: string, required: true}
+
+  addresses:
+    description: Legal and headquarters addresses. Every entity has a legal address.
+    primary_key: [lei, address_role]
+    fields:
+      - {name: lei, type: lei, required: true}
+      - {name: address_role, type: enum, values: [legal, headquarters], required: true}
+      - {name: language, type: string, required: false}
+      - {name: address_line, type: string, required: true}
+      - {name: city, type: string, required: false}
+      - {name: region, type: string, required: false}
+      - {name: country, type: string, required: true}
+      - {name: postal_code, type: string, required: false}
+      - {name: retrieved_at, type: datetime, required: true}
+      - {name: ingest_batch_id, type: string, required: true}
