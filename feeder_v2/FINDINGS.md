@@ -47,6 +47,8 @@ Verified file `RNC063L_20241230.csv` (UTF-8 BOM) columns:
 
 `Seq, Current Company Name in English, Current Company Name in Chinese, BR Number, Date of Incorporation, Date of Change of name`
 
+Later weekly files (e.g. `RNC063L_20260914.csv`) renamed the date column to `Date of Incorporation / Re-domiciliation Date`. The extractor accepts both names.
+
 Example: `3PLUS SOLUTIONS GLOBAL LIMITED` / `眾加國際有限公司` / BRN `77552157` / incorporated `2025-01-03`.
 
 This is a **government register extract**, not a third-party scrape. It is an incremental feed (new / renamed companies since 2024-12-30), not a full historical dump of every live HK company. That limitation is acceptable for bronze: the identifiers and legal names are official.
@@ -73,3 +75,17 @@ This is not a government bulk dump. It is a complementary register-ID index for 
 ## Feeder v2 contract
 
 `connectors/china_corporate_registry.yaml` is the schema. The runtime lands three streams to bronze JSONL with `_SUCCESS` + `manifest.json`. `python -m feeder_v2 land-and-validate --profile validate` is the PO-1693 check: all three streams must be present, row counts must clear YAML `min_rows_validate`, USCC checksums / HK BRN shape must pass, and `source_system` must not be OpenCorporates.
+
+## Live bronze validation (2026-09-27, run `livevalidate01`)
+
+All three streams landed and passed contract checks:
+
+| Stream | Rows | Register IDs | `_SUCCESS` |
+| --- | --- | --- | --- |
+| `cn_samr_lei` | 80 | 80 USCC | yes |
+| `hk_companies_register` | 80 | 80 HK BRN | yes |
+| `cn_uscc_wikidata` | 80 | 80 USCC | yes |
+
+Sample mainland row: `太平洋纺织机械（常熟）有限公司` / USCC `9132058172520705XD` / LEI `8368008HPTBGMFR3OV25` / SAMR `RA000092`.
+Sample HK row: `101080 MAISON LIMITED` / BRN `81253866` / weekly file `RNC063L_20260914.csv`.
+

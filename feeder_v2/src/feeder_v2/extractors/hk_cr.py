@@ -49,7 +49,11 @@ def parse_hk_csv(text: str, *, scope: str, source_uri: str) -> Iterator[dict[str
         if not legal_name or not is_valid_hk_brn(br_number):
             continue
         incorporation = _iso_date(
-            row.get("Date of Incorporation") or row.get("Date of Registration") or ""
+            row.get("Date of Incorporation")
+            or row.get("Date of Incorporation / Re-domiciliation Date")
+            or row.get("Date of Registration")
+            or row.get("Date of Registration / Re-domiciliation Date")
+            or ""
         )
         name_change = _iso_date(row.get("Date of Change of name") or "")
         yield {
